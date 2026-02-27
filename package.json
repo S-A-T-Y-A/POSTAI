@@ -1,0 +1,46 @@
+{
+  "name": "postai:-ai-social-content-generator",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@google/genai": "^1.38.0",
+    "@types/express-session": "^1.18.2",
+    "axios": "^1.13.6",
+    "body-parser": "^2.2.2",
+    "cookie-session": "^2.1.1",
+    "express-session": "^1.19.0",
+    "google-auth-library": "^10.6.1",
+    "lucide-react": "^0.562.0",
+    "motion": "^12.34.3",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "stripe": "^20.4.0",
+    "twitter-api-v2": "^1.29.0"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.14.0",
+    "@types/react-router-dom": "^5.3.3",
+    "@typescript-eslint/eslint-plugin": "^8.56.1",
+    "@typescript-eslint/parser": "^8.56.1",
+    "@vitejs/plugin-react": "^5.0.0",
+    "eslint": "^9.39.3",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "express": "^5.2.1",
+    "globals": "^17.3.0",
+    "react-router-dom": "^7.13.1",
+    "tsx": "^4.21.0",
+    "typescript": "~5.8.2",
+    "typescript-eslint": "^8.56.1",
+    "vite": "^6.2.0"
+  }
+}
