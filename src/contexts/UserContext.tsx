@@ -25,6 +25,7 @@ interface UserContextType {
   login: () => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  accessToken: string | null;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -34,6 +35,19 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accessToken, setAccessToken] = useState<string | null>(() => {
+    // Restore accessToken from localStorage if present
+    return localStorage.getItem("postai_access_token") || null;
+  });
+
+  useEffect(() => {
+    if (accessToken) {
+      console.log("Google Access Token:", accessToken);
+      localStorage.setItem("postai_access_token", accessToken);
+    } else {
+      localStorage.removeItem("postai_access_token");
+    }
+  }, [accessToken]);
   const getHeaders = useCallback(() => {
     const email = localStorage.getItem("postai_user_email");
     const headers: Record<string, string> = {
@@ -74,6 +88,10 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({
         console.log("OAuth success message received, refreshing user...");
         if (event.data.email) {
           localStorage.setItem("postai_user_email", event.data.email);
+        }
+        if (event.data.accessToken) {
+          setAccessToken(event.data.accessToken);
+          localStorage.setItem("postai_access_token", event.data.accessToken);
         }
         // Small delay to ensure session cookie is processed
         setTimeout(() => refreshUser(), 500);
@@ -120,7 +138,9 @@ export const UserProvider: React.FC<{ children: ReactNode }> = ({
   }, [getHeaders]);
 
   return (
-    <UserContext.Provider value={{ user, loading, login, logout, refreshUser }}>
+    <UserContext.Provider
+      value={{ user, loading, login, logout, refreshUser, accessToken }}
+    >
       {children}
     </UserContext.Provider>
   );

@@ -49,31 +49,33 @@ export const generateTextPost = async (prompt: string, imageDataUrl?: string | n
 };
 
 export const generateImagePost = async (prompt: string, imageDataUrl?: string | null): Promise<string> => {
-    try {
-        const ai = getAiClient();
+    // try {
+    //     const ai = getAiClient();
 
-        const contentParts: any[] = [];
-        if (imageDataUrl) {
-            contentParts.push({ inlineData: dataUrlToAiPart(imageDataUrl) });
-        }
-        contentParts.push({ text: prompt });
+    //     const contentParts: any[] = [];
+    //     if (imageDataUrl) {
+    //         contentParts.push({ inlineData: dataUrlToAiPart(imageDataUrl) });
+    //     }
+    //     contentParts.push({ text: prompt });
 
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
-            contents: { parts: contentParts },
-        });
+    //     const response = await ai.models.generateContent({
+    //         model: 'gemini-2.5-flash-image',
+    //         contents: { parts: contentParts },
+    //     });
 
-        for (const part of response?.candidates[0]?.content?.parts || []) {
-            if (part.inlineData) {
-                const base64EncodeString: string = part.inlineData.data;
-                return `data:${part.inlineData.mimeType};base64,${base64EncodeString}`;
-            }
-        }
-        throw new Error("No image content generated.");
-    } catch (error) {
-        console.error("Image generation error:", error);
-        throw new Error("Failed to generate image post.");
-    }
+    //     for (const part of response?.candidates[0]?.content?.parts || []) {
+    //         if (part.inlineData) {
+    //             const base64EncodeString: string = part.inlineData.data;
+    //             return `data:${part.inlineData.mimeType};base64,${base64EncodeString}`;
+    //         }
+    //     }
+    //     throw new Error("No image content generated.");
+    // } catch (error) {
+    //     console.error("Image generation error:", error);
+    //     throw new Error("Failed to generate image post.");
+    // }
+        return "https://dummyimage.com/512x512/222/fff.png&text=Test+Image";
+
 };
 
 const videoGenerationMessages = [

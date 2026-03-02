@@ -9,7 +9,6 @@ import axios from 'axios';
 import Stripe from 'stripe';
 import { getUserByEmail, upsertUser, updateUserByEmail} from './services/userService';
 import { getProcessedSessionsFromDb, markSessionProcessedInDb } from './services/processedSessionService';
-import { User } from './types';
 import { prisma } from './prisma/prismaClient';
 
   // --- Stripe Payment Methods API Route ---
@@ -175,7 +174,11 @@ async function startServer() {
     }
     const url = googleClient.generateAuthUrl({
       access_type: 'offline',
-      scope: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'],
+      scope: [
+        'https://www.googleapis.com/auth/userinfo.profile',
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/drive.file'
+      ],
       redirect_uri: getRedirectUri()
     });
     res.json({ url });
@@ -207,12 +210,13 @@ async function startServer() {
       }
 
       (req.session as any).userEmail = profile.email;
-      
+
       // Force session save before sending response
       req.session.save((err) => {
         if (err) console.error('Session save error:', err);
         console.log('User logged in and session saved:', profile.email);
 
+        // Send access token to frontend for Google Drive API usage
         res.send(`
           <html>
             <body>
@@ -221,7 +225,8 @@ async function startServer() {
                 if (window.opener) {
                   window.opener.postMessage({ 
                     type: 'OAUTH_AUTH_SUCCESS', 
-                    email: '${profile.email}' 
+                    email: '${profile.email}',
+                    accessToken: '${tokens.access_token}'
                   }, '*');
                   setTimeout(() => window.close(), 1000);
                 } else {
@@ -308,6 +313,30 @@ async function startServer() {
 
     try {
       const user = await getUserByEmail(email as string);
+
+      // --- ENFORCE ONE ACTIVE SUBSCRIPTION PER USER ---
+      if (user?.stripe_customer_id) {
+        // List all active subscriptions for this customer
+        const activeSubs = await stripeInstance.subscriptions.list({
+          customer: user.stripe_customer_id,
+          status: 'active',
+          expand: ['data.items.data.price.product'],
+        });
+        // Cancel only subscriptions for the same app/product (by product name)
+        for (const sub of activeSubs.data) {
+          // Check if any item in the subscription matches this app's product name
+          const hasMatchingProduct = sub.items.data.some(item => {
+            // Product name is set as `PostAI ${planName} Plan` in sessionParams
+            const product = item.price.product as any;
+            return product && product.name && product.name.startsWith('PostAI ');
+          });
+          if (hasMatchingProduct) {
+            await stripeInstance.subscriptions.cancel(sub.id, { invoice_now: true, prorate: true });
+          }
+        }
+      }
+      // --- END ENFORCE ---
+
       const sessionParams: Stripe.Checkout.SessionCreateParams = {
         payment_method_types: ['card'],
         line_items: [

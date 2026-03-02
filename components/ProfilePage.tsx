@@ -1,3 +1,13 @@
+import {
+  FaFacebook,
+  FaInstagram,
+  FaLinkedin,
+  FaTwitter,
+  FaGoogleDrive,
+  FaCheckCircle,
+  FaSyncAlt,
+} from "react-icons/fa";
+
 import React, { useEffect, useState } from "react";
 // Types for Stripe card and payment info
 interface StripeCardInfo {
@@ -21,12 +31,22 @@ import {
   Shield,
   Pencil,
 } from "lucide-react";
-import { loadStripe } from "@stripe/stripe-js";
 // ...existing code...
 
 // Wrap modal in Elements provider in ProfilePage
 export const ProfilePage: React.FC = () => {
-  const { user, logout, loading } = useUser();
+  const { user, logout, loading, accessToken, login } = useUser();
+  // Google Drive connection status
+  const isDriveConnected = Boolean(accessToken);
+  const [driveLoading, setDriveLoading] = useState(false);
+  const handleDriveReconnect = async () => {
+    setDriveLoading(true);
+    try {
+      await login();
+    } finally {
+      setDriveLoading(false);
+    }
+  };
   const [card, setCard] = useState<StripeCardInfo | null>(null);
   const [lastPayment, setLastPayment] = useState<StripeLastPayment | null>(
     null,
@@ -101,6 +121,20 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
+  // Handler stubs for social connect
+  const handleConnectFacebook = () => {
+    alert("Facebook connect coming soon!");
+  };
+  const handleConnectInstagram = () => {
+    alert("Instagram connect coming soon!");
+  };
+  const handleConnectLinkedIn = () => {
+    alert("LinkedIn connect coming soon!");
+  };
+  const handleConnectTwitter = () => {
+    alert("Twitter connect coming soon!");
+  };
+
   return (
     <div className="container mx-auto max-w-3xl py-8 px-2 md:px-0">
       <div className="max-w-4xl mx-auto px-4 py-12">
@@ -155,6 +189,90 @@ export const ProfilePage: React.FC = () => {
                   <Calendar size={14} className="mr-2" />
                   Member since {new Date(user.created_at).toLocaleDateString()}
                 </div>
+
+                {/* Google Drive Connection Status */}
+                <h3 className="text-lg font-bold text-brand-text mt-8">
+                  Apps Connected
+                </h3>
+                <div className="flex items-center p-4 bg-brand-bg/40 rounded-xl border border-brand-border mt-2">
+                  <div
+                    className={`p-2 rounded-lg mr-4 ${isDriveConnected ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"}`}
+                  >
+                    <FaGoogleDrive size={22} />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-brand-text flex items-center">
+                      Google Drive
+                      <button
+                        className="ml-2 p-1 rounded-full hover:bg-brand-primary/10 transition-colors"
+                        aria-label="Change Google Drive Account"
+                        onClick={handleDriveReconnect}
+                        disabled={driveLoading}
+                      >
+                        {/* <Pencil size={16} className="text-brand-primary" /> */}
+                      </button>
+                    </p>
+                    {/* Status icon at top right */}
+                    <div className="relative">
+                      {isDriveConnected ? (
+                        <FaCheckCircle
+                          size={20}
+                          className="absolute top-0 right-0 text-emerald-500"
+                          title="Drive Connected"
+                        />
+                      ) : (
+                        <FaSyncAlt
+                          size={20}
+                          className="absolute top-0 right-0 text-red-400"
+                          title="Drive Not Connected"
+                        />
+                      )}
+                    </div>
+                    {isDriveConnected && user?.email && (
+                      <p className="text-xs text-brand-text-secondary mt-1">
+                        ({user.email})
+                      </p>
+                    )}
+                  </div>
+                  {driveLoading && (
+                    <span className="ml-2 animate-spin h-5 w-5 border-2 border-brand-primary border-t-transparent rounded-full inline-block"></span>
+                  )}
+                </div>
+                {/* Social Media Account Linking */}
+                <h3 className="text-lg font-bold text-brand-text mt-8">
+                  Social Accounts
+                </h3>
+                <div className="flex flex-wrap gap-3 mb-6">
+                  <div className="relative flex flex-wrap gap-3 mb-6">
+                    <button
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg shadow transition opacity-60 cursor-not-allowed"
+                      disabled
+                    >
+                      <FaFacebook />
+                    </button>
+                    <button
+                      className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-yellow-500 text-white rounded-lg shadow transition opacity-60 cursor-not-allowed"
+                      disabled
+                    >
+                      <FaInstagram />
+                    </button>
+                    <button
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-800 text-white rounded-lg shadow transition opacity-60 cursor-not-allowed"
+                      disabled
+                    >
+                      <FaLinkedin />
+                    </button>
+                    <button
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-400 text-white rounded-lg shadow transition opacity-60 cursor-not-allowed"
+                      disabled
+                    >
+                      <FaTwitter />
+                    </button>
+                    <span className="absolute inset-0 flex items-center justify-center text-base font-semibold text-white bg-black/20 rounded-lg pointer-events-none z-10">
+                      Coming Soon
+                    </span>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-6">
@@ -176,8 +294,6 @@ export const ProfilePage: React.FC = () => {
                     </div>
                   </div>
                 </div>
-
-                {/* Payment Method Section */}
                 <h3 className="text-lg font-bold text-brand-text">
                   Payment Method
                 </h3>
