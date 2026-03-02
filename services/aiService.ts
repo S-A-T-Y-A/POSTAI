@@ -37,7 +37,7 @@ export const generateTextPost = async (prompt: string, imageDataUrl?: string | n
             contents: { parts: contentParts },
         });
 
-        const text = response.text;
+        const text = response?.text;
         if (!text) {
              throw new Error("No text content generated.");
         }
@@ -63,7 +63,7 @@ export const generateImagePost = async (prompt: string, imageDataUrl?: string | 
             contents: { parts: contentParts },
         });
 
-        for (const part of response.candidates[0].content.parts) {
+        for (const part of response?.candidates[0]?.content?.parts || []) {
             if (part.inlineData) {
                 const base64EncodeString: string = part.inlineData.data;
                 return `data:${part.inlineData.mimeType};base64,${base64EncodeString}`;

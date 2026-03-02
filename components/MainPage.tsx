@@ -24,8 +24,8 @@ export const MainPage: React.FC<MainPageProps> = ({
 }) => {
     return (
         <main className="container mx-auto p-4 md:p-8 max-w-7xl">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="lg:col-span-1 space-y-8">
                     {error && (
                         <div className="bg-red-500/10 border border-red-500/30 text-red-300 px-4 py-3 rounded-lg relative animate-fade-in" role="alert">
                             <strong className="font-bold">Oops! </strong>
@@ -49,7 +49,7 @@ export const MainPage: React.FC<MainPageProps> = ({
                         </div>
                     )}
                 </div>
-                <div className="lg:col-span-1 lg:sticky top-8 h-screen overflow-y-auto pr-4">
+                <div className="lg:col-span-1 lg:sticky top-8 overflow-y-auto pr-4">
                     {isLoading && <Loader message={loadingMessage} />}
                     {currentPost ? (
                         <div className="animate-fade-in">

@@ -84,7 +84,7 @@ const AppContent: React.FC = () => {
         }
 
         // Check subscription status for paid plans
-        if (user.plan !== 'Free' && user.subscriptionStatus !== 'active') {
+        if (user.plan !== 'Free' && user.subscription_status !== 'active') {
             setError("Your subscription is not active. Please check your payment status on the Plans page.");
             navigate('/plans');
             return;

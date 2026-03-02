@@ -4,6 +4,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useUser } from '../src/contexts/UserContext';
 import { CheckCircle2, PartyPopper } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { HowItWorks } from './HowItWorks';
 
 enum SubscriptionPlan {
     FREE = 'Free',
@@ -135,11 +136,11 @@ export const PlansPage: React.FC<PlansPageProps> = ({ currentPlan, credits }) =>
                     Verifying your payment...
                 </div>
             )}
-            {user?.subscriptionStatus && user.subscriptionStatus !== 'active' && user.plan !== 'Free' && (
+            {user?.subscription_status && user.subscription_status !== 'active' && user.plan !== 'Free' && (
                 <div className="mb-8 p-6 bg-red-500/10 border border-red-500/30 rounded-xl text-center">
                     <h3 className="text-xl font-bold text-red-400 mb-2">Subscription Issue</h3>
                     <p className="text-red-300/80 mb-4">
-                        Your subscription status is currently <strong>{user.subscriptionStatus}</strong>. 
+                        Your subscription status is currently <strong>{user.subscription_status}</strong>. 
                         Please update your payment method or re-subscribe to continue using premium features.
                     </p>
                 </div>
@@ -149,6 +150,7 @@ export const PlansPage: React.FC<PlansPageProps> = ({ currentPlan, credits }) =>
                 credits={credits} 
                 onPlanChange={handleUpgrade} 
             />
+                        <HowItWorks />
         </div>
     );
 };

@@ -1,3 +1,5 @@
+
+import 'dotenv/config';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { TwitterApi } from 'twitter-api-v2';
@@ -5,38 +7,13 @@ import { OAuth2Client } from 'google-auth-library';
 import session from 'express-session';
 import axios from 'axios';
 import Stripe from 'stripe';
-import fs from 'fs';
-import path from 'path';
+import { getUserByEmail, upsertUser, updateUserByEmail} from './services/userService';
+import { getProcessedSessionsFromDb, markSessionProcessedInDb } from './services/processedSessionService';
+import { User } from './types';
+import { prisma } from './prisma/prismaClient';
 
-const DB_FILE = path.resolve('users.json');
-const SESSIONS_FILE = path.resolve('processed_sessions.json');
-
-// Simple file-based database
-function getUsers() {
-    if (!fs.existsSync(DB_FILE)) return {};
-    return JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
-}
-
-function saveUsers(users: any) {
-    fs.writeFileSync(DB_FILE, JSON.stringify(users, null, 2));
-}
-
-function getProcessedSessions(): string[] {
-    if (!fs.existsSync(SESSIONS_FILE)) return [];
-    try {
-        return JSON.parse(fs.readFileSync(SESSIONS_FILE, 'utf-8'));
-    } catch {
-        return [];
-    }
-}
-
-function markSessionProcessed(sessionId: string) {
-    const sessions = getProcessedSessions();
-    if (!sessions.includes(sessionId)) {
-        sessions.push(sessionId);
-        fs.writeFileSync(SESSIONS_FILE, JSON.stringify(sessions, null, 2));
-    }
-}
+  // --- Stripe Payment Methods API Route ---
+import { getStripePaymentInfo } from './services/stripePaymentServices';
 
 let stripe: Stripe | null = null;
 const getStripe = () => {
@@ -72,61 +49,95 @@ async function startServer() {
         return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
+    console.log(event);
+
     if (event.type === 'checkout.session.completed') {
-        const session = event.data.object as Stripe.Checkout.Session;
-        const sessionId = session.id;
-        const email = session.metadata?.email;
-        const planName = session.metadata?.planName;
-        const creditsToAdd = parseInt(session.metadata?.credits || '0');
-        const subscriptionId = session.subscription as string;
+      const session = event.data.object as Stripe.Checkout.Session;
+      const sessionId = session.id;
+      const email = session.metadata?.email;
+      const planName = session.metadata?.planName;
+      const creditsToAdd = parseInt(session.metadata?.credits || '0');
+      const subscriptionId = session.subscription as string;
+      const stripeCustomerId = typeof session.customer === 'string' ? session.customer : undefined;
 
-        const processedSessions = getProcessedSessions();
-        if (processedSessions.includes(sessionId)) {
-            console.log(`Webhook: Session ${sessionId} already processed. Skipping.`);
-            return res.json({ received: true });
-        }
+      console.log('--- Stripe Webhook Debug ---');
+      console.log('Event:', event.type);
+      console.log('Session ID:', sessionId);
+      console.log('Email:', email);
+      console.log('Plan Name:', planName);
+      console.log('Credits To Add:', creditsToAdd);
+      console.log('Subscription ID:', subscriptionId);
+      console.log('Stripe Customer ID:', stripeCustomerId);
 
-        if (email && planName && creditsToAdd > 0) {
-            const users = getUsers();
-            if (users[email]) {
-                users[email].credits = creditsToAdd;
-                users[email].plan = planName;
-                users[email].subscriptionId = subscriptionId;
-                users[email].subscriptionStatus = 'active';
-                saveUsers(users);
-                markSessionProcessed(sessionId);
-                console.log(`Webhook: Updated subscription for ${email}. Plan: ${planName}`);
-            }
+      const processedSessions = await getProcessedSessionsFromDb();
+      if (processedSessions.includes(sessionId)) {
+        console.log(`Webhook: Session ${sessionId} already processed. Skipping.`);
+        return res.json({ received: true });
+      }
+
+      if (email && planName && creditsToAdd > 0) {
+        const user = await getUserByEmail(email);
+        console.log('User found in Supabase:', user);
+        if (user && user.id) {
+          const updated = await updateUserByEmail(email, {
+            credits: creditsToAdd,
+            plan: planName,
+            subscription_id: subscriptionId,
+            subscription_status: 'active',
+            ...(stripeCustomerId ? { stripe_customer_id: stripeCustomerId } : {}),
+          });
+          console.log('Update result:', updated);
+          // Insert payment history record
+          try {
+            const amount = typeof session.amount_total === 'number' ? session.amount_total / 100 : undefined;
+            await prisma.payment_history.create({
+              data: {
+                user_id: user.id,
+                amount: amount ?? null,
+                plan: planName,
+                credits: creditsToAdd,
+                stripe_session_id: sessionId,
+                // created_at is handled by Prisma default
+              },
+            });
+            console.log('Payment history recorded');
+          } catch (err) {
+            console.error('Failed to record payment history:', err);
+          }
+          await markSessionProcessedInDb(sessionId);
+          console.log(`Webhook: Updated subscription for ${email}. Plan: ${planName}`);
+        } else {
+          console.error('No user found for email:', email);
         }
+      }
     }
 
     if (event.type === 'customer.subscription.deleted' || event.type === 'customer.subscription.updated') {
-        const subscription = event.data.object as Stripe.Subscription;
-        const users = getUsers();
-        const email = subscription.metadata?.email;
-        
-        // Find user by subscription ID if metadata email is missing
-        const userEmail = email || Object.keys(users).find(key => users[key].subscriptionId === subscription.id);
-
-        if (userEmail && users[userEmail]) {
-            users[userEmail].subscriptionStatus = subscription.status;
-            if (subscription.status !== 'active') {
-                console.log(`Webhook: Subscription ${subscription.id} for ${userEmail} is now ${subscription.status}`);
-            }
-            saveUsers(users);
+      const subscription = event.data.object as Stripe.Subscription;
+      const email = subscription.metadata?.email;
+      let userEmail = email;
+      if (!userEmail && subscription.id) {
+        // Fallback: find user by subscriptionId
+        // This is a workaround; ideally, you should always have email in metadata
+        // You may want to add a Supabase function to find by subscriptionId
+      }
+      if (userEmail) {
+        await updateUserByEmail(userEmail, { subscription_status: subscription.status });
+        if (subscription.status !== 'active') {
+          console.log(`Webhook: Subscription ${subscription.id} for ${userEmail} is now ${subscription.status}`);
         }
+      }
     }
 
     if (event.type === 'invoice.payment_failed') {
-        const invoice = event.data.object as Stripe.Invoice;
-        const users = getUsers();
-        const userEmail = Object.keys(users).find(key => users[key].subscriptionId === invoice.subscription);
-
-        if (userEmail && users[userEmail]) {
-            users[userEmail].subscriptionStatus = 'past_due';
-            saveUsers(users);
-            console.log(`Webhook: Payment failed for ${userEmail}. Status set to past_due.`);
-        }
+      const invoice = event.data.object as Stripe.Invoice;
+      // You may want to add a Supabase function to find user by subscriptionId
+      // For now, this is a placeholder
+      // const userEmail = ...
+      // if (userEmail) {
+      //   await updateUserByEmail(userEmail, { subscription_status: 'past_due' });
+      //   console.log(`Webhook: Payment failed for ${userEmail}. Status set to past_due.`);
+      // }
     }
 
     res.json({ received: true });
@@ -183,18 +194,16 @@ async function startServer() {
       });
 
       const profile = userInfoResponse.data;
-      const users = getUsers();
-      
-      if (!users[profile.email]) {
-        users[profile.email] = {
+      let user = await getUserByEmail(profile.email);
+      if (!user) {
+        user = await upsertUser({
           email: profile.email,
           name: profile.name,
           picture: profile.picture,
           credits: 5, // Default free credits
           plan: 'Free',
-          createdAt: new Date().toISOString()
-        };
-        saveUsers(users);
+          created_at: new Date().toISOString(),
+        });
       }
 
       (req.session as any).userEmail = profile.email;
@@ -234,16 +243,14 @@ async function startServer() {
     }
   });
 
-  app.get('/api/auth/me', (req, res) => {
+  app.get('/api/auth/me', async (req, res) => {
     // Fallback to header if session cookie is blocked by iframe restrictions
     const email = (req.session as any).userEmail || req.headers['x-user-email'];
     
     console.log('Checking auth for /api/auth/me. Session Email:', (req.session as any).userEmail, 'Header Email:', req.headers['x-user-email']);
     
     if (!email) return res.json({ user: null });
-    
-    const users = getUsers();
-    const user = users[email as string];
+    const user = await getUserByEmail(email as string);
     console.log('User found in DB:', !!user);
     res.json({ user });
   });
@@ -255,21 +262,30 @@ async function startServer() {
     });
   });
 
-  app.post('/api/user/deduct-credits', (req, res) => {
+  app.post('/api/user/deduct-credits', async (req, res) => {
     const email = (req.session as any).userEmail || req.headers['x-user-email'];
     if (!email) return res.status(401).json({ error: 'Unauthorized' });
     
     const { amount } = req.body;
-    const users = getUsers();
-    const user = users[email as string];
-    
+    const user = await getUserByEmail(email as string);
+    if (!user) return res.status(404).json({ error: 'User not found' });
     if (user.credits < amount) {
-        return res.status(400).json({ error: 'Insufficient credits' });
+      return res.status(400).json({ error: 'Insufficient credits' });
     }
-    
-    user.credits -= amount;
-    saveUsers(users);
-    res.json({ success: true, credits: user.credits });
+    const updated = await updateUserByEmail(email as string, { credits: user.credits - amount });
+    res.json({ success: true, credits: updated?.credits });
+  });
+
+  app.get('/api/stripe/payment-methods', async (req, res) => {
+    const userEmail = req.headers['x-user-email'] as string;
+    if (!userEmail) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    const result = await getStripePaymentInfo(userEmail);
+    if (result.error) {
+      return res.status(result.status).json({ error: result.error });
+    }
+    res.status(200).json({ card: result.card, lastPayment: result.lastPayment });
   });
 
   // Stripe Checkout
@@ -282,7 +298,6 @@ async function startServer() {
 
     const { planName, price, credits } = req.body;
     const stripeInstance = getStripe();
-    
     if (!stripeInstance) {
         console.error('Create Session Error: Stripe not configured (Missing STRIPE_SECRET_KEY)');
         return res.status(500).json({ error: 'Stripe not configured' });
@@ -292,45 +307,57 @@ async function startServer() {
     console.log('Creating Stripe session for:', email, 'Plan:', planName, 'App URL:', appUrl);
 
     try {
-        const session = await stripeInstance.checkout.sessions.create({
-            payment_method_types: ['card'],
-            line_items: [
-                {
-                    price_data: {
-                        currency: 'usd',
-                        product_data: {
-                            name: `PostAI ${planName} Plan`,
-                            description: `${credits} Credits for AI Content Generation`,
-                        },
-                        unit_amount: price * 100,
-                        recurring: { interval: 'month' },
-                    },
-                    quantity: 1,
-                },
-            ],
-            mode: 'subscription',
-            success_url: `${appUrl.replace(/\/$/, '')}/plans?session_id={CHECKOUT_SESSION_ID}&plan=${planName}&credits=${credits}`,
-            cancel_url: `${appUrl.replace(/\/$/, '')}/plans`,
-            customer_email: email as string,
-            subscription_data: {
-                metadata: {
-                    email: email as string,
-                    planName,
-                    credits: credits.toString()
-                }
+      const user = await getUserByEmail(email as string);
+      const sessionParams: Stripe.Checkout.SessionCreateParams = {
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: `PostAI ${planName} Plan`,
+                description: `${credits} Credits for AI Content Generation`,
+              },
+              unit_amount: price * 100,
+              recurring: { interval: 'month' },
             },
-            metadata: {
-                email: email as string,
-                planName,
-                credits: credits.toString()
-            }
-        });
+            quantity: 1,
+          },
+        ],
+        mode: 'subscription',
+        success_url: `${appUrl.replace(/\/$/, '')}/plans?session_id={CHECKOUT_SESSION_ID}&plan=${planName}&credits=${credits}`,
+        cancel_url: `${appUrl.replace(/\/$/, '')}/plans`,
+        subscription_data: {
+          metadata: {
+            email: email as string,
+            planName,
+            credits: credits.toString()
+          }
+        },
+        metadata: {
+          email: email as string,
+          planName,
+          credits: credits.toString()
+        }
+      };
 
-        console.log('Stripe session created successfully:', session.id);
-        res.json({ id: session.id, url: session.url });
+      if (user?.stripe_customer_id) {
+        sessionParams.customer = user.stripe_customer_id;
+      } else {
+        sessionParams.customer_email = email as string;
+      }
+
+      const session = await stripeInstance.checkout.sessions.create(sessionParams);
+
+      // If user didn't have a customer_id, save it after session creation
+      console.log('Stripe session created. Session ID:', session.id, 'Customer:', session.customer);
+      console.log('User before update:', user);
+
+      console.log('Stripe session created successfully:', session.id);
+      res.json({ id: session.id, url: session.url });
     } catch (error: any) {
-        console.error('Stripe Session Error Detail:', error);
-        res.status(500).json({ error: error.message });
+      console.error('Stripe Session Error Detail:', error);
+      res.status(500).json({ error: error.message });
     }
   });
 
@@ -345,36 +372,83 @@ async function startServer() {
     if (!stripeInstance) return res.status(500).json({ error: 'Stripe not configured' });
 
     try {
-        const processedSessions = getProcessedSessions();
+        const processedSessions = await getProcessedSessionsFromDb();
         if (processedSessions.includes(sessionId)) {
-            const users = getUsers();
-            return res.json({ success: true, user: users[email as string] });
+          const user = await getUserByEmail(email as string);
+          return res.json({ success: true, user });
         }
 
         const session = await stripeInstance.checkout.sessions.retrieve(sessionId);
-        if (session.payment_status === 'paid' && session.metadata?.email === email) {
-            const users = getUsers();
-            const user = users[email as string];
-            
-            const planName = session.metadata.planName;
-            const creditsToSet = parseInt(session.metadata.credits);
-
-            user.credits = creditsToSet; // Set to plan credits, don't add
-            user.plan = planName;
-            user.subscriptionId = session.subscription as string;
-            user.subscriptionStatus = 'active';
-            saveUsers(users);
-            markSessionProcessed(sessionId);
-
-            res.json({ success: true, user });
+        if (session && session.payment_status === 'paid' && session.metadata?.email === email) {
+          const planName = session?.metadata?.planName;
+          const creditsToSet = parseInt(session?.metadata?.credits || '0');
+          const updated = await updateUserByEmail(email as string, {
+            credits: creditsToSet,
+            plan: planName,
+            subscription_id: session?.subscription as string,
+            subscription_status: 'active',
+          });
+          await markSessionProcessedInDb(sessionId);
+          res.json({ success: true, user: updated });
         } else {
-            res.status(400).json({ error: 'Payment not verified' });
+          res.status(400).json({ error: 'Payment not verified' });
         }
     } catch (error: any) {
         res.status(500).json({ error: error.message });
     }
   });
 
+    // Create SetupIntent for updating card
+  app.post('/api/stripe/create-setup-intent', async (req, res) => {
+    const email = (req.session as any).userEmail || req.headers['x-user-email'];
+    if (!email) return res.status(401).json({ error: 'Unauthorized' });
+    const user = await getUserByEmail(email as string);
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    const stripeInstance = getStripe();
+    if (!stripeInstance) return res.status(500).json({ error: 'Stripe not configured' });
+    if (!user.stripe_customer_id) return res.status(400).json({ error: 'No Stripe customer ID' });
+    try {
+      const setupIntent = await stripeInstance.setupIntents.create({
+        customer: user.stripe_customer_id,
+        usage: 'off_session',
+      });
+      res.json({ clientSecret: setupIntent.client_secret });
+    } catch (err: any) {
+      console.error('SetupIntent error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+    // Create Stripe Customer Portal session for updating card
+  app.post('/api/stripe/create-portal-session', async (req, res) => {
+    const email = (req.session as any).userEmail || req.body.email || req.headers['x-user-email'];
+    const { stripeCustomerId } = req.body;
+    if (!email && !stripeCustomerId) {
+      return res.status(400).json({ error: 'Missing user email or stripeCustomerId' });
+    }
+    const stripeInstance = getStripe();
+    if (!stripeInstance) return res.status(500).json({ error: 'Stripe not configured' });
+    let customerId = stripeCustomerId;
+    if (!customerId) {
+      // Try to get from DB if not provided
+      const user = await getUserByEmail(email);
+      customerId = user?.stripe_customer_id;
+    }
+    if (!customerId) {
+      return res.status(400).json({ error: 'No Stripe customer ID found' });
+    }
+    try {
+      const session = await stripeInstance.billingPortal.sessions.create({
+        customer: customerId,
+        return_url: process.env.PORTAL_RETURN_URL || 'http://localhost:3000/profile',
+      });
+      return res.status(200).json({ url: session.url });
+    } catch (err) {
+      console.error('Stripe portal session error:', err);
+      return res.status(500).json({ error: 'Failed to create portal session' });
+    }
+  });
+  
   app.post('/api/share/twitter', async (req, res) => {
     const { text } = req.body;
 
@@ -399,7 +473,7 @@ async function startServer() {
     }
 });
 
-// API routes will go here
+// --- End Stripe Payment Methods API Route ---
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
