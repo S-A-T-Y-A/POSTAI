@@ -60,8 +60,8 @@ export const History: React.FC<HistoryProps> = ({
               </p>
             </div>
             <span className="text-xs text-brand-text-secondary whitespace-nowrap ml-4">
-              {(() => {
-                let dateObj = post.timestamp;
+              {/* {(() => {
+                let dateObj = post.created_at;
                 if (typeof dateObj === "string") {
                   dateObj = new Date(dateObj);
                 }
@@ -71,7 +71,8 @@ export const History: React.FC<HistoryProps> = ({
                       minute: "2-digit",
                     })
                   : "";
-              })()}
+              })()} */}
+              posted at {new Date(post.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}  
             </span>
           </div>
         ))}

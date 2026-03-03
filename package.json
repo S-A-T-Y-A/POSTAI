@@ -10,7 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google-cloud/storage": "^7.19.0",
     "@google/genai": "^1.38.0",
+    "@huggingface/inference": "^4.13.14",
     "@prisma/adapter-pg": "^7.4.2",
     "@prisma/client": "^7.4.2",
     "@react-oauth/google": "^0.13.4",
@@ -27,6 +29,7 @@
     "lottie-react": "^2.4.1",
     "lucide-react": "^0.562.0",
     "motion": "^12.34.3",
+    "multer": "^2.1.0",
     "next": "^16.1.6",
     "prisma": "^7.4.2",
     "react": "^19.2.3",
@@ -38,6 +41,7 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.6",
+    "@types/multer": "^2.0.0",
     "@types/node": "^22.14.0",
     "@types/react-dom": "^19.2.3",
     "@types/react-router-dom": "^5.3.3",

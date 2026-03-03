@@ -1,0 +1,31 @@
+/* index.css: Theme styles for dark and light mode */
+:root[data-theme="dark"] {
+  --bg: #0A0E14;
+  --surface: #161B22;
+  --border: #30363D;
+  --primary: #3B82F6;
+  --secondary: #8B5CF6;
+  --text: #E6EDF3;
+  --text-secondary: #8B949E;
+}
+:root[data-theme="light"] {
+  --bg: #F7FAFC;
+  --surface: #FFFFFF;
+  --border: #E2E8F0;
+  --primary: #2563EB;
+  --secondary: #7C3AED;
+  --text: #1A202C;
+  --text-secondary: #4A5568;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', sans-serif;
+}
+.bg-brand-bg { background: var(--bg) !important; }
+.bg-brand-surface { background: var(--surface) !important; }
+.border-brand-border { border-color: var(--border) !important; }
+.text-brand-text { color: var(--text) !important; }
+.text-brand-text-secondary { color: var(--text-secondary) !important; }
+.bg-brand-primary { background: var(--primary) !important; }
+.bg-brand-secondary { background: var(--secondary) !important; }

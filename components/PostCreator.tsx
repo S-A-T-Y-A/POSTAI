@@ -6,7 +6,6 @@ import React, {
   useContext,
 } from "react";
 import { useUser } from "../src/contexts/UserContext";
-import { uploadFileToGoogleDrive } from "../services/googleDriveUpload";
 import { PostType } from "../types";
 import {
   Type,
@@ -17,6 +16,8 @@ import {
   X,
   BookImage,
 } from "lucide-react";
+
+// Remove: import { uploadFileToGCP } from "../services/gcpStorageService";
 
 interface PostCreatorProps {
   onGenerate: (prompt: string, type: PostType, images: string[] | null) => void;
@@ -48,74 +49,39 @@ export const PostCreator = forwardRef<any, PostCreatorProps>(
       },
     }));
 
-    const { accessToken } = useUser();
+    const { user } = useUser();
 
+    // For story prompt input images, do NOT upload to GCP, just keep as local object URLs or base64
     const handleFiles = async (files: FileList) => {
       const fileArray = Array.from(files);
-      const uploadedDriveImages: string[] = [];
-
-      console.log("[DEBUG] handleFiles called with", fileArray.length, "files");
-
+      const localUrls: string[] = [];
       for (const file of fileArray) {
-        if (file && file.type.startsWith("image/")) {
+        if (
+          file &&
+          (file.type.startsWith("image/") ||
+            file.type.startsWith("video/") ||
+            file.type.startsWith("audio/") ||
+            file.type === "application/json")
+        ) {
           try {
-            console.log(
-              "[DEBUG] Uploading file to Google Drive:",
-              file.name,
-              "AccessToken:",
-              accessToken,
-            );
-            if (accessToken) {
-              const driveFile = await uploadFileToGoogleDrive({
-                accessToken,
-                file,
-                fileName: file.name,
-                mimeType: file.type,
-              });
-              console.log("[DEBUG] Google Drive upload response:", driveFile);
-              uploadedDriveImages.push(
-                `https://drive.google.com/uc?id=${driveFile.id}`,
-              );
-            } else {
-              console.log(
-                "[DEBUG] No access token, using local preview for",
-                file.name,
-              );
-              const reader = new FileReader();
-              reader.onloadend = () => {
-                uploadedDriveImages.push(reader.result as string);
-                console.log(
-                  "[DEBUG] Local preview image loaded:",
-                  reader.result,
-                );
-                if (uploadedDriveImages.length === fileArray.length) {
-                  setUploadedImages((prev) => [
-                    ...prev,
-                    ...uploadedDriveImages,
-                  ]);
-                }
-              };
-              reader.readAsDataURL(file);
-            }
+            // Use local object URL for preview and pass file object/base64 to story generator
+            const url = URL.createObjectURL(file);
+            localUrls.push(url);
           } catch (err) {
             console.error(
-              "[DEBUG] Google Drive upload failed for",
+              "Failed to process file for prompt input",
               file.name,
               err,
             );
-            alert(`Google Drive upload failed for ${file.name}: ${err}`);
+            alert(`Failed to process file: ${file.name}`);
           }
         } else {
-          console.warn("[DEBUG] Skipping invalid file:", file?.name);
+          console.warn("Skipping invalid file:", file?.name);
           alert(`Skipping invalid file: ${file.name}`);
         }
       }
-      if (uploadedDriveImages.length === fileArray.length) {
-        console.log(
-          "[DEBUG] All images processed, updating state:",
-          uploadedDriveImages,
-        );
-        setUploadedImages((prev) => [...prev, ...uploadedDriveImages]);
+      if (localUrls.length === fileArray.length) {
+        setUploadedImages((prev) => [...prev, ...localUrls]);
       }
     };
 
@@ -153,8 +119,15 @@ export const PostCreator = forwardRef<any, PostCreatorProps>(
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (prompt.trim() || uploadedImages.length > 0) {
-        await onGenerate(prompt, postType, uploadedImages);
+      // For story posts, send all uploadedImages (local object URLs or base64)
+      const imagesToSend =
+        postType === PostType.STORY
+          ? uploadedImages
+          : uploadedImages.filter((img) =>
+              img.startsWith("https://drive.google.com/uc?id="),
+            );
+      if (prompt.trim() || imagesToSend.length > 0) {
+        await onGenerate(prompt, postType, imagesToSend);
         // Only clear after generation is done and not loading
         if (!isLoading) {
           setPrompt("");
@@ -312,3 +285,41 @@ export const PostCreator = forwardRef<any, PostCreatorProps>(
     );
   },
 );
+
+// Remove: import { uploadFileToGoogleDrive } from "../services/googleDriveUpload";
+
+// Add helper to upload any file to GCP via backend
+async function uploadFileToGCP({
+  file,
+  userId,
+  type,
+  metadata,
+}: {
+  file: File;
+  userId: string;
+  type: string;
+  metadata?: any;
+}): Promise<string> {
+  // Convert file to base64
+  const fileBuffer = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  const res = await fetch("/api/media/upload", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId,
+      fileName: file.name,
+      mimeType: file.type,
+      type,
+      metadata,
+      fileBuffer,
+    }),
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || "Upload failed");
+  return data.media.url;
+}

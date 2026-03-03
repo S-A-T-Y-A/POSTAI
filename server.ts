@@ -1,6 +1,6 @@
-
 import 'dotenv/config';
 import express from 'express';
+import multer from 'multer';
 import { createServer as createViteServer } from 'vite';
 import { TwitterApi } from 'twitter-api-v2';
 import { OAuth2Client } from 'google-auth-library';
@@ -10,6 +10,12 @@ import Stripe from 'stripe';
 import { getUserByEmail, upsertUser, updateUserByEmail} from './services/userService';
 import { getProcessedSessionsFromDb, markSessionProcessedInDb } from './services/processedSessionService';
 import { prisma } from './prisma/prismaClient';
+import { uploadToGCPStorage } from './services/gcpStorageService';
+import { Request } from 'express';
+
+interface MulterRequest extends Request {
+  file?: Express.Multer.File;
+}
 
   // --- Stripe Payment Methods API Route ---
 import { getStripePaymentInfo } from './services/stripePaymentServices';
@@ -24,6 +30,7 @@ const getStripe = () => {
 
 async function startServer() {
   const app = express();
+  const upload = multer({ limits: { fileSize: 100 * 1024 * 1024 } }); // 100MB limit
   const PORT = 3000;
 
   app.set('trust proxy', 1);
@@ -292,7 +299,6 @@ async function startServer() {
     }
     res.status(200).json({ card: result.card, lastPayment: result.lastPayment });
   });
-
   // Stripe Checkout
   app.post('/api/create-checkout-session', async (req, res) => {
     const email = (req.session as any).userEmail || req.headers['x-user-email'];
@@ -497,10 +503,47 @@ async function startServer() {
         const { data: createdTweet } = await client.v2.tweet(text);
         res.json({ success: true, tweet: createdTweet });
     } catch (error) {
+
         console.error(error);
         res.status(500).json({ error: 'Failed to post to Twitter' });
     }
 });
+// --- End Stripe Payment Methods API Route ---
+
+// --- Post Creation API Route ---
+app.post('/api/posts/create', upload.single('file'), async (req, res) => {
+  const mreq = req as MulterRequest;
+  try {
+    const { userId, prompt, type, storyText } = mreq.body;
+    if (!userId || !prompt) {
+      return res.status(400).json({ error: 'Missing required fields: userId, prompt' });
+    }
+    let url = '';
+    if (mreq.file) {
+      const fileBuffer = mreq.file.buffer;
+      const fileName = mreq.file.originalname;
+      const mimeType = mreq.file.mimetype;
+      url = await uploadToGCPStorage(fileBuffer, fileName, mimeType, type);
+    }
+    const postData: any = {
+      user_id: userId,
+      prompt,
+      type,
+      url,
+    };
+    if ((type === 'text' || type === 'story') && storyText) {
+      postData.storyText = storyText;
+    }
+    const post = await prisma.post.create({
+      data: postData,
+    });
+    res.json({ success: true, post });
+  } catch (err) {
+    console.error('Post creation error:', err);
+    res.status(500).json({ error: 'Failed to create post' });
+  }
+});
+// --- End Post Creation API Route ---
 
 // --- End Stripe Payment Methods API Route ---
 

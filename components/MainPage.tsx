@@ -4,6 +4,7 @@ import { Preview } from "./Preview";
 import { History } from "./History";
 import { Loader } from "./Loader";
 import { HowItWorks } from "./HowItWorks";
+import { useUser } from "../src/contexts/UserContext";
 import { Post, PostType } from "../types";
 import { CREDIT_COSTS } from "../src/constants";
 import { Companion } from "./Companion";
@@ -36,7 +37,9 @@ export const MainPage: React.FC<MainPageProps> = ({
 }) => {
   // Clear history handler
   const [historyPosts, setHistoryPosts] = React.useState(posts);
-  React.useEffect(() => { setHistoryPosts(posts); }, [posts]);
+  React.useEffect(() => {
+    setHistoryPosts(posts);
+  }, [posts]);
   const handleClearHistory = () => {
     setHistoryPosts([]);
     localStorage.removeItem("postai_posts");
@@ -46,12 +49,37 @@ export const MainPage: React.FC<MainPageProps> = ({
   // Gather prompt history from posts
   const promptHistory = posts.map((post) => post.prompt).filter(Boolean);
 
-  const handleUsePrompt = (prompt: string, imageUrl: string) => {
+  const { accessToken } = useUser();
+  const handleUsePrompt = async (prompt: string, imageUrl: string) => {
+    let finalImage = imageUrl;
+    // If imageUrl is a Drive URL, fetch as blob and convert to base64
+    if (imageUrl.startsWith("https://drive.google.com/uc") && accessToken) {
+      const fileIdMatch = imageUrl.match(/id=([a-zA-Z0-9_-]+)/);
+      const fileId = fileIdMatch ? fileIdMatch[1] : null;
+      if (fileId) {
+        try {
+          const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+          const res = await fetch(url, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          if (res.ok) {
+            const blob = await res.blob();
+            const reader = new FileReader();
+            finalImage = await new Promise<string>((resolve) => {
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+          }
+        } catch (e) {
+          // fallback to original imageUrl
+        }
+      }
+    }
     if (
       postCreatorRef.current &&
       typeof postCreatorRef.current.setPromptAndImage === "function"
     ) {
-      postCreatorRef.current.setPromptAndImage(prompt, imageUrl);
+      postCreatorRef.current.setPromptAndImage(prompt, finalImage);
     }
   };
 
@@ -102,7 +130,11 @@ export const MainPage: React.FC<MainPageProps> = ({
           </div>
           {historyPosts.length > 0 && (
             <div className="mt-12 animate-fade-in">
-              <History posts={historyPosts} onSelectPost={handleSelectPost} onClearHistory={handleClearHistory} />
+              <History
+                posts={historyPosts}
+                onSelectPost={handleSelectPost}
+                onClearHistory={handleClearHistory}
+              />
             </div>
           )}
         </div>

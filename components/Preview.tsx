@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { Post } from "../types";
+import { useUser } from "../src/contexts/UserContext";
 import { Download, Copy, Share2, Twitter } from "lucide-react";
 
 interface PreviewProps {
@@ -44,25 +45,35 @@ export const Preview: React.FC<PreviewProps> = ({ post, onUsePrompt }) => {
     document.body.removeChild(link);
   };
 
+  const { accessToken } = useUser();
+  const [imageSrc, setImageSrc] = useState<string>("");
+
+  useEffect(() => {
+    if (post.type === "image" && post.url) {
+      setImageSrc(post.url);
+    }
+  }, [post]);
+
   const renderContent = () => {
     switch (post.type) {
       case "text":
         return (
           <div className="text-brand-text-secondary whitespace-pre-wrap p-4 bg-brand-bg rounded-lg border border-brand-border prose max-w-none">
-            <ReactMarkdown>{post.content}</ReactMarkdown>
+            <ReactMarkdown>{post.storyText || ""}</ReactMarkdown>
           </div>
         );
       case "image":
+        console.log("[PREVIEW] Rendering image with URL:", imageSrc);
         return (
           <div className="relative">
             <img
-              src={post.content}
+              src={imageSrc}
               alt={post.prompt}
               className="rounded-lg w-full object-contain"
             />
             {onUsePrompt && (
               <button
-                onClick={() => onUsePrompt(post.prompt, post.content)}
+                onClick={() => onUsePrompt(post.prompt, imageSrc)}
                 className="absolute bottom-4 right-4 px-4 py-2 text-sm bg-brand-primary hover:bg-brand-secondary text-white font-semibold rounded-lg shadow-lg transition z-10"
                 style={{ opacity: 0.95 }}
               >
@@ -72,13 +83,11 @@ export const Preview: React.FC<PreviewProps> = ({ post, onUsePrompt }) => {
           </div>
         );
       case "video":
-        return (
-          <video src={post.content} controls className="rounded-lg w-full" />
-        );
+        return <video src={post.url} controls className="rounded-lg w-full" />;
       case "story":
         return (
           <div className="space-y-4">
-            <video src={post.content} controls className="rounded-lg w-full" />
+            <video src={post.url} controls className="rounded-lg w-full" />
             <div className="p-4 bg-brand-bg rounded-lg border border-brand-border">
               <h3 className="text-lg font-bold text-brand-text mb-2">
                 Generated Story
@@ -89,7 +98,7 @@ export const Preview: React.FC<PreviewProps> = ({ post, onUsePrompt }) => {
             </div>
           </div>
         );
-      default:
+      default:``
         return null;
     }
   };
@@ -99,7 +108,7 @@ export const Preview: React.FC<PreviewProps> = ({ post, onUsePrompt }) => {
       case "text":
         return (
           <button
-            onClick={() => handleCopy(post.content)}
+            onClick={() => handleCopy(post.url)}
             className="flex items-center gap-2 px-4 py-2 text-sm bg-brand-surface hover:bg-brand-border border border-brand-border text-brand-text font-semibold rounded-lg transition"
           >
             <Copy size={16} /> Copy
@@ -110,7 +119,7 @@ export const Preview: React.FC<PreviewProps> = ({ post, onUsePrompt }) => {
           <div className="flex items-center gap-2">
             <button
               onClick={() =>
-                handleDownload(post.content, `postai-image-${post.id}.png`)
+                handleDownload(post.url, `postai-image-${post.id}.png`)
               }
               className="flex items-center gap-2 px-4 py-2 text-sm bg-brand-surface hover:bg-brand-border border border-brand-border text-brand-text font-semibold rounded-lg transition"
             >
@@ -122,7 +131,7 @@ export const Preview: React.FC<PreviewProps> = ({ post, onUsePrompt }) => {
         return (
           <button
             onClick={() =>
-              handleDownload(post.content, `postai-video-${post.id}.mp4`)
+              handleDownload(post.url, `postai-video-${post.id}.mp4`)
             }
             className="flex items-center gap-2 px-4 py-2 text-sm bg-brand-surface hover:bg-brand-border border border-brand-border text-brand-text font-semibold rounded-lg transition"
           >
@@ -134,7 +143,7 @@ export const Preview: React.FC<PreviewProps> = ({ post, onUsePrompt }) => {
           <div className="flex items-center gap-2">
             <button
               onClick={() =>
-                handleDownload(post.content, `postai-story-${post.id}.mp4`)
+                handleDownload(post.url, `postai-story-${post.id}.mp4`)
               }
               className="flex items-center gap-2 px-4 py-2 text-sm bg-brand-surface hover:bg-brand-border border border-brand-border text-brand-text font-semibold rounded-lg transition"
             >

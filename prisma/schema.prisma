@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -19,6 +20,7 @@ model user {
   stripe_customer_id  String?
   generation_stats    generation_stat[]
   payment_history     payment_history[]
+  posts               post[]
 }
 
 model processed_session {
@@ -51,4 +53,15 @@ enum generation_type {
   story
   text
   image
+}
+
+model post {
+  id          String   @id @default(uuid())
+  user_id     String
+  prompt      String
+  type        String   // text, image, video, story, etc.
+  url         String   // GCP URL for image/video
+  storyText   String?  // Generated text for text/story posts
+  created_at  DateTime @default(now())
+  user        user     @relation(fields: [user_id], references: [id])
 }

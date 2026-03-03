@@ -6,15 +6,34 @@ export enum PostType {
     STORY = 'story',
 }
 
+export enum MediaType {
+    IMAGE = 'image',
+    VIDEO = 'video',
+    OTHER = 'other',
+}
+
+// MediaAsset interface matching Prisma schema
+export interface MediaAsset {
+    id: string;
+    user_id: string;
+    url: string;
+    type: MediaType; // image, video, etc.
+    metadata?: Record<string, any>;
+    created_at: string;
+}
+
+// Post interface matching Prisma schema
 export interface Post {
     id: string;
-    type: PostType;
+    user_id: string;
     prompt: string;
-    content: string; // URL for image/video, text content for text
-    storyText?: string; // For generated text accompanying a story video
-    timestamp: Date;
+    type: PostType; // text, image, video, story, etc.
+    storyText?: string; // For story posts, the generated text content
+    url: string;
+    media_ids: string[];
+    metadata?: Record<string, any>;
+    created_at: string;
 }
-// TypeScript types matching the Prisma schema
 
 
 export type GenerationType = 'video' | 'story' | 'text' | 'image';

@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { FaGoogleDrive } from "react-icons/fa";
 import { Header } from "./components/Header";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ApiKeySelector } from "./components/ApiKeySelector";
 import { Post, PostType } from "./types";
 import { GoogleOAuthProvider } from "@react-oauth/google";
@@ -115,7 +116,15 @@ const AppContent: React.FC = () => {
   // Helper to sanitize post content before saving
   const sanitizePost = (post: Post | null): Post | null => {
     if (!post) return null;
-    // Remove base64 data URLs from all string fields
+    // For image posts, keep the Drive URL as content
+    if (
+      post.type === "image" &&
+      post.url &&
+      post.url.startsWith("https://drive.google.com/uc?id=")
+    ) {
+      return { ...post };
+    }
+    // Remove base64 data URLs from all string fields for other post types
     const sanitized: any = { ...post };
     Object.keys(sanitized).forEach((key) => {
       if (
@@ -190,69 +199,15 @@ const AppContent: React.FC = () => {
     setCurrentPost(null);
 
     try {
-      let newPost: Post | null = null;
+      // 1. Generate post content as before
+      let generatedContent: any = {};
       const image = images && images.length > 0 ? images[0] : null;
-
-      // Helper: Upload generated content to Google Drive
-      const uploadToDrive = async (
-        fileUrl: string,
-        fileName: string,
-        mimeType: string,
-      ) => {
-        try {
-          console.log("[DEBUG] uploadToDrive called with:", {
-            fileUrl,
-            fileName,
-            mimeType,
-          });
-          console.log("[DEBUG] Current accessToken:", accessToken);
-          // Fetch the file as a blob
-          const res = await fetch(fileUrl);
-          const blob = await res.blob();
-          if (accessToken) {
-            console.log(
-              "[DEBUG] Uploading generated file to Google Drive:",
-              fileName,
-            );
-            const driveFile = await uploadFileToGoogleDrive({
-              accessToken,
-              file: blob,
-              fileName,
-              mimeType,
-            });
-            console.log("[DEBUG] Drive upload response:", driveFile);
-          } else {
-            console.warn(
-              "[DEBUG] Skipping Drive upload: accessToken is missing",
-            );
-          }
-        } catch (err) {
-          console.error("[DEBUG] Drive upload failed:", err);
-        }
-      };
-
       if (type === PostType.TEXT) {
         setLoadingMessage("Crafting your text post...");
-        const text = await generateTextPost(prompt, image);
-        newPost = {
-          id: Date.now().toString(),
-          type,
-          prompt,
-          content: text,
-          timestamp: new Date(),
-        };
+        generatedContent.content = await generateTextPost(prompt, image);
       } else if (type === PostType.IMAGE) {
         setLoadingMessage("Generating your masterpiece...");
-        const imageUrl = await generateImagePost(prompt, image);
-        // Upload image to Drive
-        await uploadToDrive(imageUrl, "generated-image.png", "image/png");
-        newPost = {
-          id: Date.now().toString(),
-          type,
-          prompt,
-          content: imageUrl,
-          timestamp: new Date(),
-        };
+        generatedContent.content = await generateImagePost(prompt, image);
       } else if (type === PostType.VIDEO) {
         if (!isApiKeySelected) {
           setError("API key is required for video generation.");
@@ -261,16 +216,11 @@ const AppContent: React.FC = () => {
         }
         const onProgress = (status: VideoGenerationStatus) =>
           setLoadingMessage(status.message);
-        const videoUrl = await generateVideoPost(prompt, onProgress, images);
-        // Upload video to Drive
-        await uploadToDrive(videoUrl, "generated-video.mp4", "video/mp4");
-        newPost = {
-          id: Date.now().toString(),
-          type,
+        generatedContent.content = await generateVideoPost(
           prompt,
-          content: videoUrl,
-          timestamp: new Date(),
-        };
+          onProgress,
+          images,
+        );
       } else if (type === PostType.STORY) {
         if (!isApiKeySelected) {
           setError("API key is required for story generation.");
@@ -284,38 +234,135 @@ const AppContent: React.FC = () => {
         }
         const onProgress = (status: VideoGenerationStatus) =>
           setLoadingMessage(status.message);
-        const { videoUrl, storyText } = await generateStoryPost(
-          prompt,
-          onProgress,
-          images,
-        );
-        newPost = {
-          id: Date.now().toString(),
-          type,
-          prompt,
-          content: videoUrl,
-          storyText,
-          timestamp: new Date(),
-        };
+        const storyResult = await generateStoryPost(prompt, onProgress, images);
+        generatedContent.content = storyResult.videoUrl;
+        generatedContent.storyText = storyResult.storyText;
       }
 
-      if (newPost) {
-        // Deduct credits on backend
+      // 2. Prepare file upload data
+      let fileBlob = null,
+        fileName = null,
+        mimeType = null;
+      if (
+        (type === PostType.IMAGE ||
+          type === PostType.VIDEO ||
+          type === PostType.STORY) &&
+        generatedContent.content
+      ) {
+        try {
+          let blob;
+          if (type === PostType.IMAGE) {
+            // Convert data URL to Blob for image
+            const arr = generatedContent.content.split(",");
+            const mime = arr[0].match(/:(.*?);/)[1];
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) {
+              u8arr[n] = bstr.charCodeAt(n);
+            }
+            blob = new Blob([u8arr], { type: mime });
+            fileName = `generated-image-${Date.now()}.png`;
+            mimeType = mime;
+          } else {
+            // Fetch video/story from URL and get Blob
+            const response = await fetch(generatedContent.content);
+            blob = await response.blob();
+            fileName =
+              type === PostType.VIDEO
+                ? `generated-video-${Date.now()}.mp4`
+                : `generated-story-${Date.now()}.mp4`;
+            mimeType = "video/mp4";
+          }
+          fileBlob = blob;
+        } catch (err) {
+          console.error("Failed to prepare file blob", err);
+        }
+      }
+
+      // 3. Create post in Supabase via backend
+      if (fileBlob) {
+        // Define storyText for text/story posts
+        const storyText =
+          type === "story" && generatedContent.storyText
+            ? generatedContent.storyText
+            : type === "text" && generatedContent.content
+              ? generatedContent.content
+              : undefined;
+        const formData = new FormData();
+        if (user.id) formData.append("userId", user.id);
+        if (prompt) formData.append("prompt", prompt);
+        if (type) formData.append("type", type);
+        if (storyText) formData.append("storyText", storyText);
+        if (fileBlob) formData.append("file", fileBlob, fileName || "file.mp4");
+        const postResponse = await fetch("/api/posts/create", {
+          method: "POST",
+          body: formData,
+        });
+        if (!postResponse.ok) {
+          throw new Error("Failed to create post in Supabase.");
+        }
+        const { post } = await postResponse.json();
+
+        // 4. Deduct credits on backend
         const deductResponse = await fetch("/api/user/deduct-credits", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-user-email": localStorage.getItem("postai_user_email") || "",
+            "x-user-email": user.email,
           },
           body: JSON.stringify({ amount: cost }),
         });
-
         if (!deductResponse.ok) {
           throw new Error("Failed to deduct credits.");
         }
 
-        setCurrentPost(newPost);
-        setPosts((prevPosts) => [newPost!, ...prevPosts]);
+        // 5. Update frontend state with Supabase post
+        setCurrentPost(post);
+        setPosts((prevPosts) => [post, ...prevPosts]);
+        refreshUser(); // Sync user credits
+      } else {
+        // Fallback for text only
+        const postPayload = {
+          userId: user.id,
+          prompt: prompt,
+          type,
+          ...(type === "text" && generatedContent.content
+            ? { storyText: generatedContent.content }
+            : {}),
+          ...(type === "story" && generatedContent.storyText
+            ? { storyText: generatedContent.storyText }
+            : {}),
+        };
+        const postResponse = await fetch("/api/posts/create", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-user-email": user.email,
+          },
+          body: JSON.stringify(postPayload),
+        });
+        if (!postResponse.ok) {
+          throw new Error("Failed to create post in Supabase.");
+        }
+        const { post } = await postResponse.json();
+
+        // 4. Deduct credits on backend
+        const deductResponse = await fetch("/api/user/deduct-credits", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-user-email": user.email,
+          },
+          body: JSON.stringify({ amount: cost }),
+        });
+        if (!deductResponse.ok) {
+          throw new Error("Failed to deduct credits.");
+        }
+
+        // 5. Update frontend state with Supabase post
+        setCurrentPost(post);
+        setPosts((prevPosts) => [post, ...prevPosts]);
         refreshUser(); // Sync user credits
       }
     } catch (e: any) {
@@ -579,13 +626,51 @@ const AppContent: React.FC = () => {
   );
 };
 
+import { ThemeProvider, useTheme } from "./src/contexts/ThemeContext";
+
+const ThemeToggle: React.FC = () => {
+  const { theme, toggleTheme } = useTheme();
+  return (
+    <button
+      onClick={toggleTheme}
+      style={{
+        position: "fixed",
+        top: 16,
+        right: 16,
+        zIndex: 1000,
+        padding: "8px 16px",
+        borderRadius: 8,
+        background: theme === "dark" ? "#222" : "#eee",
+        color: theme === "dark" ? "#fff" : "#222",
+        border: "none",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+        cursor: "pointer",
+      }}
+      aria-label="Toggle theme"
+    >
+      {theme === "dark" ? "🌙 Dark" : "☀️ Light"}
+    </button>
+  );
+};
+
+const AppContentWithTheme: React.FC = () => (
+  <>
+    <ThemeToggle />
+    <AppContent />
+  </>
+);
+
 const App: React.FC = () => {
   return (
-    <UserProvider>
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
-    </UserProvider>
+    <ThemeProvider>
+      <UserProvider>
+        <BrowserRouter>
+          <ErrorBoundary>
+            <AppContentWithTheme />
+          </ErrorBoundary>
+        </BrowserRouter>
+      </UserProvider>
+    </ThemeProvider>
   );
 };
 
