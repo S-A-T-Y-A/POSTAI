@@ -68,7 +68,7 @@ jobs:
           IMAGE_URI="${{ env.ARTIFACT_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.SERVICE_NAME }}:latest"
           gcloud builds submit \
             --tag "$IMAGE_URI" \
-            --logging=CLOUD_LOGGING_ONLY \
+            --no-stream-logs \
             .
 
       - name: Deploy to Cloud Run
