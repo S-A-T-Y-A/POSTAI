@@ -66,7 +66,10 @@ jobs:
       - name: Build and Push Docker Image
         run: |
           IMAGE_URI="${{ env.ARTIFACT_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.SERVICE_NAME }}:latest"
-          gcloud builds submit --tag "$IMAGE_URI" .
+          gcloud builds submit \
+            --tag "$IMAGE_URI" \
+            --logging=CLOUD_LOGGING_ONLY \
+            .
 
       - name: Deploy to Cloud Run
         run: |
