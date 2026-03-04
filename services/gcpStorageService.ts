@@ -3,7 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const storage = new Storage({
-  credentials: JSON.parse(process.env.GCP_SERVICE_KEY || '{}')
+  credentials: JSON.parse(process.env.GCS_SERVICE_KEY || '{}')
 });
 
 const BUCKET_NAME = 'postai_media';

@@ -11,6 +11,7 @@ jobs:
     env:
       GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
       GCP_REGION: ${{ secrets.GCP_REGION }}
+      GCS_SERVICE_KEY: ${{ secrets.GCS_SERVICE_KEY }}
       GCP_SERVICE_KEY: ${{ secrets.GCP_SERVICE_KEY }}
       SERVICE_NAME: postai-app
       ARTIFACT_REPO: ${{ secrets.ARTIFACT_REPO }}
@@ -54,6 +55,7 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_SERVICE_KEY }}
+          token_format: "access_token"
 
       - name: Set up gcloud CLI
         uses: google-github-actions/setup-gcloud@v2
