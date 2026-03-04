@@ -25,4 +25,7 @@ export async function uploadToGCPStorage(
   });
   // No makePublic() needed for uniform bucket-level access
   return `https://storage.googleapis.com/${BUCKET_NAME}/${objectName}`;
+  // If you need to make the file public, you can set the ACL to public-read
+  // await file.makePublic();
+  // return `https://storage.googleapis.com/${BUCKET_NAME}/${objectName}`;
 }
