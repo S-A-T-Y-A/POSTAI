@@ -30,13 +30,13 @@ const plans: Record<SubscriptionPlan, PlanDetails> = {
   },
   [SubscriptionPlan.PRO]: {
     name: SubscriptionPlan.PRO,
-    price: 30,
-    credits: 80,
+    price: 35,
+    credits: 100,
   },
   [SubscriptionPlan.BUSINESS]: {
     name: SubscriptionPlan.BUSINESS,
-    price: 60,
-    credits: 200,
+    price: 80,
+    credits: 250,
   },
 };
 import {
