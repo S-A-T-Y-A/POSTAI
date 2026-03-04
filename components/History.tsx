@@ -1,11 +1,13 @@
 import React from "react";
-import { Post, PostType } from "../types";
+import { Post, PostType,SubscriptionPlan } from "../types";
 import { Type, Image, Film, BookImage } from "lucide-react";
+import { HISTORY_LIMIT } from "../src/constants";
 
 interface HistoryProps {
   posts: Post[];
   onSelectPost: (post: Post) => void;
   onClearHistory?: () => void;
+  currentPlan: SubscriptionPlan;
 }
 
 const PostTypeIcon = ({ type }: { type: PostType }) => {
@@ -27,7 +29,13 @@ export const History: React.FC<HistoryProps> = ({
   posts,
   onSelectPost,
   onClearHistory,
+  currentPlan,
 }) => {
+  const percentUsed = Math.min(
+    100,
+    Math.round((posts.length / HISTORY_LIMIT[currentPlan]) * 100),
+  );
+  const percentLeft = 100 - percentUsed;
   return (
     <div className="relative">
       <div className="flex justify-between items-center mb-2">
@@ -41,6 +49,20 @@ export const History: React.FC<HistoryProps> = ({
             Clear
           </button>
         )}
+      </div>
+      <div className="mb-4">
+        <div className="w-full h-3 bg-brand-border rounded-full overflow-hidden">
+          <div
+            className="h-3 bg-brand-primary transition-all duration-300"
+            style={{ width: `${percentUsed}%` }}
+          />
+        </div>
+        <div className="flex justify-between text-xs mt-1 text-brand-text-secondary">
+          <span>
+            {posts.length} / {HISTORY_LIMIT[currentPlan]} used
+          </span>
+          <span>{percentLeft}% left</span>
+        </div>
       </div>
       <div
         className="space-y-3 overflow-y-auto custom-scrollbar"
@@ -72,7 +94,11 @@ export const History: React.FC<HistoryProps> = ({
                     })
                   : "";
               })()} */}
-              posted at {new Date(post.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}  
+              posted at{" "}
+              {new Date(post.created_at).toLocaleTimeString([], {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
             </span>
           </div>
         ))}

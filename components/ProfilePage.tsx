@@ -36,6 +36,7 @@ import {
 // Wrap modal in Elements provider in ProfilePage
 export const ProfilePage: React.FC = () => {
   const { user, logout, loading, accessToken, login } = useUser();
+  console.log("ProfilePage user:", user);
   // Google Drive connection status
   const isDriveConnected = Boolean(accessToken);
   const [driveLoading, setDriveLoading] = useState(false);

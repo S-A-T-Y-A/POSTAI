@@ -1,18 +1,15 @@
+
+
 import React, { useState, useCallback, useEffect } from "react";
 import { FaGoogleDrive } from "react-icons/fa";
 import { Header } from "./components/Header";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ApiKeySelector } from "./components/ApiKeySelector";
-import { Post, PostType } from "./types";
+import { Post, PostType ,SubscriptionPlan} from "./types";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { uploadFileToGoogleDrive } from "./services/googleDriveUpload";
 // Define subscription plans
-enum SubscriptionPlan {
-  FREE = "Free",
-  BASIC = "Basic",
-  PRO = "Pro",
-  BUSINESS = "Business",
-}
+
 
 interface PlanDetails {
   name: SubscriptionPlan;
@@ -61,7 +58,7 @@ import {
   generateStoryPost,
   VideoGenerationStatus,
 } from "./services/aiService";
-import { CREDIT_COSTS } from "./src/constants";
+import { CREDIT_COSTS, HISTORY_LIMIT } from "./src/constants";
 
 // This is a polyfill for aistudio, for local development
 if (typeof window !== "undefined" && !(window as any).aistudio) {
@@ -84,11 +81,9 @@ const AppContent: React.FC = () => {
     }
   }, [user, accessToken, login]);
 
+
   const navigate = useNavigate();
-  const [posts, setPosts] = useState<Post[]>(() => {
-    const saved = localStorage.getItem("postai_posts");
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [posts, setPosts] = useState<Post[]>([]);
   const [currentPost, setCurrentPost] = useState<Post | null>(() => {
     const saved = localStorage.getItem("postai_currentPost");
     return saved ? JSON.parse(saved) : null;
@@ -141,7 +136,36 @@ const AppContent: React.FC = () => {
     return posts.map((post) => sanitizePost(post) as Post);
   };
 
-  // Persist posts and currentPost to localStorage (sanitize only for storage)
+  // Fetch posts from Supabase on mount, fallback to localStorage if offline
+  useEffect(() => {
+    const fetchPosts = async () => {
+      console.log("Fetching posts for user:", user);
+      try {
+        const response = await fetch("/api/posts", {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "x-user-id": user?.id || "",
+          },
+        });
+        if (!response.ok)
+          throw new Error("Failed to fetch posts from Supabase");
+        const data = await response.json();
+        setPosts(data.posts || []);
+        localStorage.setItem(
+          "postai_posts",
+          JSON.stringify(sanitizePosts(data.posts || [])),
+        );
+      } catch (err) {
+        // Fallback to localStorage if fetch fails
+        const saved = localStorage.getItem("postai_posts");
+        setPosts(saved ? JSON.parse(saved) : []);
+      }
+    };
+    fetchPosts();
+  }, [user]);
+
+  // Persist posts to localStorage when posts state changes
   useEffect(() => {
     localStorage.setItem("postai_posts", JSON.stringify(sanitizePosts(posts)));
   }, [posts]);
@@ -177,6 +201,11 @@ const AppContent: React.FC = () => {
     if (!user) {
       setError("Please sign in to generate content.");
       login();
+      return;
+    }
+
+    if(posts.length >= HISTORY_LIMIT[currentPlan]) {
+      setError(`You ran out of memory. Please clear some space to generate new content.`);
       return;
     }
 
@@ -626,51 +655,18 @@ const AppContent: React.FC = () => {
   );
 };
 
-import { ThemeProvider, useTheme } from "./src/contexts/ThemeContext";
-
-const ThemeToggle: React.FC = () => {
-  const { theme, toggleTheme } = useTheme();
-  return (
-    <button
-      onClick={toggleTheme}
-      style={{
-        position: "fixed",
-        top: 16,
-        right: 16,
-        zIndex: 1000,
-        padding: "8px 16px",
-        borderRadius: 8,
-        background: theme === "dark" ? "#222" : "#eee",
-        color: theme === "dark" ? "#fff" : "#222",
-        border: "none",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-        cursor: "pointer",
-      }}
-      aria-label="Toggle theme"
-    >
-      {theme === "dark" ? "🌙 Dark" : "☀️ Light"}
-    </button>
-  );
-};
-
-const AppContentWithTheme: React.FC = () => (
-  <>
-    <ThemeToggle />
-    <AppContent />
-  </>
-);
 
 const App: React.FC = () => {
   return (
-    <ThemeProvider>
       <UserProvider>
         <BrowserRouter>
           <ErrorBoundary>
-            <AppContentWithTheme />
+            {/* <AppContentWithTheme />
+             */}
+             <AppContent />
           </ErrorBoundary>
         </BrowserRouter>
       </UserProvider>
-    </ThemeProvider>
   );
 };
 

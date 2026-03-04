@@ -12,6 +12,13 @@ export enum MediaType {
     OTHER = 'other',
 }
 
+
+export enum SubscriptionPlan {
+  FREE = "Free",
+  BASIC = "Basic",
+  PRO = "Pro",
+  BUSINESS = "Business",
+}
 // MediaAsset interface matching Prisma schema
 export interface MediaAsset {
     id: string;

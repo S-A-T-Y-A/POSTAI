@@ -545,6 +545,39 @@ app.post('/api/posts/create', upload.single('file'), async (req, res) => {
 });
 // --- End Post Creation API Route ---
 
+app.get('/api/posts', async (req, res) => {
+  try {
+    const userIdRaw = req.headers["x-user-id"] || req.query.userId;
+    const userId = Array.isArray(userIdRaw) ? userIdRaw[0] : userIdRaw;
+    if (!userId) {
+      return res.status(400).json({ error: "Missing userId in request" });
+    }
+    const posts = await prisma.post.findMany({
+      where: { user_id: userId as string },
+      orderBy: { created_at: 'desc' },
+    });
+    res.json({ posts });
+  } catch (err) {
+    console.error('Failed to fetch posts:', err);
+    res.status(500).json({ error: 'Failed to fetch posts' });
+  }
+});
+
+// Delete all posts for a user
+app.delete('/api/posts', async (req, res) => {
+  try {
+    const userIdRaw = req.headers["x-user-id"] || req.query.userId;
+    const userId = Array.isArray(userIdRaw) ? userIdRaw[0] : userIdRaw;
+    if (!userId) {
+      return res.status(400).json({ error: "Missing userId in request" });
+    }
+    await prisma.post.deleteMany({ where: { user_id: userId as string } });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Failed to delete posts:', err);
+    res.status(500).json({ error: 'Failed to delete posts' });
+  }
+});
 // --- End Stripe Payment Methods API Route ---
 
   if (process.env.NODE_ENV !== 'production') {

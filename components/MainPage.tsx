@@ -5,7 +5,7 @@ import { History } from "./History";
 import { Loader } from "./Loader";
 import { HowItWorks } from "./HowItWorks";
 import { useUser } from "../src/contexts/UserContext";
-import { Post, PostType } from "../types";
+import { Post, PostType,SubscriptionPlan } from "../types";
 import { CREDIT_COSTS } from "../src/constants";
 import { Companion } from "./Companion";
 
@@ -35,6 +35,8 @@ export const MainPage: React.FC<MainPageProps> = ({
   handleSelectPost,
   credits,
 }) => {
+  const userContext = useUser();
+  const { user } = userContext;
   // Clear history handler
   const [historyPosts, setHistoryPosts] = React.useState(posts);
   React.useEffect(() => {
@@ -43,6 +45,24 @@ export const MainPage: React.FC<MainPageProps> = ({
   const handleClearHistory = () => {
     setHistoryPosts([]);
     localStorage.removeItem("postai_posts");
+    // Debug user object and request
+    console.log("handleClearHistory user:", user);
+    if (user?.id) {
+      console.log("Sending DELETE /api/posts with x-user-id:", user.id);
+      fetch("/api/posts", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": user.id,
+        },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          console.log("DELETE /api/posts response:", data);
+        });
+    } else {
+      console.warn("No user.id found, not sending DELETE request");
+    }
   };
   const postCreatorRef = useRef<any>(null);
 
@@ -134,6 +154,7 @@ export const MainPage: React.FC<MainPageProps> = ({
                 posts={historyPosts}
                 onSelectPost={handleSelectPost}
                 onClearHistory={handleClearHistory}
+                currentPlan={user?.plan as SubscriptionPlan || SubscriptionPlan.FREE}
               />
             </div>
           )}

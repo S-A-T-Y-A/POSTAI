@@ -14,6 +14,7 @@ interface PlanDetails {
   name: SubscriptionPlan;
   price: number;
   credits: number;
+  historyLimit: number;
   features: string[];
 }
 
@@ -22,43 +23,51 @@ const plans: Record<SubscriptionPlan, PlanDetails> = {
     name: SubscriptionPlan.FREE,
     price: 0,
     credits: 5,
+    historyLimit: 20,
     features: [
       `${Math.floor(5 / CREDIT_COSTS[PostType.IMAGE])} Image Generations`,
       `${Math.floor(5 / CREDIT_COSTS[PostType.TEXT])} Text Generations`,
       "No Video Generation",
+      "History Storage: 20 posts",
     ],
   },
   [SubscriptionPlan.BASIC]: {
     name: SubscriptionPlan.BASIC,
     price: 15,
     credits: 40,
+    historyLimit: 50,
     features: [
       `${Math.floor(40 / CREDIT_COSTS[PostType.VIDEO])} Video/Story Generation`,
       `${Math.floor(40 / CREDIT_COSTS[PostType.IMAGE])} Image Generations`,
       `${Math.floor(40 / CREDIT_COSTS[PostType.TEXT])} Text Generations`,
       "Standard Support",
+      "History Storage: 50 posts",
     ],
   },
   [SubscriptionPlan.PRO]: {
     name: SubscriptionPlan.PRO,
     price: 30,
     credits: 80,
+    historyLimit: 100,
     features: [
       `${Math.floor(80 / CREDIT_COSTS[PostType.VIDEO])} Video/Story Generations`,
       `${Math.floor(80 / CREDIT_COSTS[PostType.IMAGE])} Image Generations`,
       `${Math.floor(80 / CREDIT_COSTS[PostType.TEXT])} Text Generations`,
       "Priority Support",
+      "History Storage: 100 posts",
     ],
   },
   [SubscriptionPlan.BUSINESS]: {
     name: SubscriptionPlan.BUSINESS,
     price: 60,
     credits: 200,
+    historyLimit: 200,
     features: [
       `${Math.floor(200 / CREDIT_COSTS[PostType.VIDEO])} Video/Story Generations`,
       `${Math.floor(200 / CREDIT_COSTS[PostType.IMAGE])} Image Generations`,
       `${Math.floor(200 / CREDIT_COSTS[PostType.TEXT])} Text Generations`,
       "Dedicated Support",
+      "History Storage: 200 posts",
     ],
   },
 };
@@ -87,7 +96,9 @@ export const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({
           </p>
         </div>
       </div>
-      <p className="text-sm text-brand-text-secondary my-2">Use respective credits for each feature or combine them as needed.</p>
+      <p className="text-sm text-brand-text-secondary my-2">
+        Use respective credits for each feature or combine them as needed.
+      </p>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         {Object.values(plans).map((plan) => (
           <div
