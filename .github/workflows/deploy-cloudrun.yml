@@ -35,8 +35,6 @@ jobs:
       PORTAL_RETURN_URL: ${{ secrets.PORTAL_RETURN_URL }}
       HF_API_KEY: ${{ secrets.HF_API_KEY }}
       API_KEY: ${{ secrets.API_KEY }}
-      ARTIFACT_REGION: ${{ secrets.ARTIFACT_REGION }}
-      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -44,7 +42,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Install dependencies
         run: npm ci
@@ -61,7 +59,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ env.GCP_PROJECT_ID }}
-          install_components: 'beta'
+          install_components: "beta"
 
       - name: Build and Push Docker Image
         run: |
