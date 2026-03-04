@@ -1,0 +1,78 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    env:
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      GCP_REGION: ${{ secrets.GCP_REGION }}
+      GCP_SERVICE_KEY: ${{ secrets.GCP_SERVICE_KEY }}
+      SERVICE_NAME: postai-app
+      ARTIFACT_REPO: ${{ secrets.ARTIFACT_REPO }}
+      ARTIFACT_REGION: ${{ secrets.ARTIFACT_REGION }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      DIRECT_URL: ${{ secrets.DIRECT_URL }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
+      TWITTER_API_KEY_SECRET: ${{ secrets.TWITTER_API_KEY_SECRET }}
+      TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+      TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      APP_URL: ${{ secrets.APP_URL }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      STRIPE_WEBHOOK_SECRET: ${{ secrets.STRIPE_WEBHOOK_SECRET }}
+      VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
+      PORTAL_RETURN_URL: ${{ secrets.PORTAL_RETURN_URL }}
+      HF_API_KEY: ${{ secrets.HF_API_KEY }}
+      API_KEY: ${{ secrets.API_KEY }}
+      ARTIFACT_REGION: ${{ secrets.ARTIFACT_REGION }}
+      GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build project
+        run: npm run build
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SERVICE_KEY }}
+
+      - name: Set up gcloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          install_components: 'beta'
+
+      - name: Build and Push Docker Image
+        run: |
+          IMAGE_URI="${{ env.ARTIFACT_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.SERVICE_NAME }}:latest"
+          gcloud builds submit --tag "$IMAGE_URI" .
+
+      - name: Deploy to Cloud Run
+        run: |
+          IMAGE_URI="${{ env.ARTIFACT_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.ARTIFACT_REPO }}/${{ env.SERVICE_NAME }}:latest"
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image "$IMAGE_URI" \
+            --region ${{ env.GCP_REGION }} \
+            --project ${{ env.GCP_PROJECT_ID }} \
+            --allow-unauthenticated
