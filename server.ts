@@ -7,10 +7,10 @@ import { OAuth2Client } from 'google-auth-library';
 import session from 'express-session';
 import axios from 'axios';
 import Stripe from 'stripe';
-import { getUserByEmail, upsertUser, updateUserByEmail} from './services/userService';
-import { getProcessedSessionsFromDb, markSessionProcessedInDb } from './services/processedSessionService';
-import { prisma } from './prisma/prismaClient';
-import { uploadToGCPStorage } from './services/gcpStorageService';
+import { getUserByEmail, upsertUser, updateUserByEmail} from './services/userService.js';
+import { getProcessedSessionsFromDb, markSessionProcessedInDb } from './services/processedSessionService.js';
+import { prisma } from './prisma/prismaClient.js';
+import { uploadToGCPStorage } from './services/gcpStorageService.js';
 import { Request } from 'express';
 import path from 'path';
 
@@ -19,7 +19,7 @@ interface MulterRequest extends Request {
 }
 
   // --- Stripe Payment Methods API Route ---
-import { getStripePaymentInfo } from './services/stripePaymentServices';
+import { getStripePaymentInfo } from './services/stripePaymentServices.js';
 
 let stripe: Stripe | null = null;
 const getStripe = () => {

@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-02-25.clover' });
-import { prisma } from '../prisma/prismaClient';
+import { prisma } from '../prisma/prismaClient.js';
 
 
 // Fetch the Stripe customer ID from your database using the user's email
@@ -49,19 +49,19 @@ export async function getStripePaymentInfo(userEmail: string) {
     return {
       card: card
         ? {
-            brand: card.card?.brand,
-            last4: card.card?.last4,
-            exp_month: card.card?.exp_month,
-            exp_year: card.card?.exp_year,
-            name: card.billing_details.name,
-          }
+          brand: card.card?.brand,
+          last4: card.card?.last4,
+          exp_month: card.card?.exp_month,
+          exp_year: card.card?.exp_year,
+          name: card.billing_details.name,
+        }
         : null,
       lastPayment: lastCharge
         ? {
-            amount: (lastCharge.amount / 100).toFixed(2),
-            currency: lastCharge.currency,
-            date: new Date(lastCharge.created * 1000).toISOString(),
-          }
+          amount: (lastCharge.amount / 100).toFixed(2),
+          currency: lastCharge.currency,
+          date: new Date(lastCharge.created * 1000).toISOString(),
+        }
         : null,
       status: 200,
     };

@@ -1,5 +1,5 @@
-import { prisma } from '../prisma/prismaClient';
-import {User} from '../types';
+import { prisma } from '../prisma/prismaClient.js';
+import { User } from '../types.js';
 
 function toUser(u: any): User {
   return {

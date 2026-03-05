@@ -1,8 +1,8 @@
-import {prisma} from '../prisma/prismaClient';
+import { prisma } from '../prisma/prismaClient.js';
 
 export async function getProcessedSessionsFromDb(): Promise<string[]> {
   const sessions = await prisma.processed_session.findMany({ select: { session_id: true } });
-  return sessions.map(s => s.session_id);
+  return sessions.map((s: { session_id: string }) => s.session_id);
 }
 
 export async function markSessionProcessedInDb(sessionId: string): Promise<void> {
