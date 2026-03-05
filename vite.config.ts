@@ -7,6 +7,7 @@ export default defineConfig(({ mode }) => {
   return {
     server: {
       middlewareMode: true,
+      allowedHosts: true,
     },
     plugins: [react()],
     define: {
