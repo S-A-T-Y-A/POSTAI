@@ -7,26 +7,27 @@ import { OAuth2Client } from 'google-auth-library';
 import session from 'express-session';
 import axios from 'axios';
 import Stripe from 'stripe';
-import { getUserByEmail, upsertUser, updateUserByEmail} from './services/userService.js';
+import { getUserByEmail, upsertUser, updateUserByEmail } from './services/userService.js';
 import { getProcessedSessionsFromDb, markSessionProcessedInDb } from './services/processedSessionService.js';
 import { prisma } from './prisma/prismaClient.js';
 import { uploadToGCPStorage } from './services/gcpStorageService.js';
 import { Request } from 'express';
+import compression from 'compression';
 import path from 'path';
 
 interface MulterRequest extends Request {
   file?: Express.Multer.File;
 }
 
-  // --- Stripe Payment Methods API Route ---
+// --- Stripe Payment Methods API Route ---
 import { getStripePaymentInfo } from './services/stripePaymentServices.js';
 
 let stripe: Stripe | null = null;
 const getStripe = () => {
-    if (!stripe && process.env.STRIPE_SECRET_KEY) {
-        stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    }
-    return stripe;
+  if (!stripe && process.env.STRIPE_SECRET_KEY) {
+    stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+  }
+  return stripe;
 };
 
 async function startServer() {
@@ -35,10 +36,11 @@ async function startServer() {
   const PORT = Number(process.env.PORT) || 8080;
 
   app.set('trust proxy', 1);
+  app.use(compression());
 
   // Serve static files from Vite build in production
   if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(path.join(__dirname, 'dist')));
+    app.use(express.static(path.join(__dirname, 'dist'), { maxAge: '1y' }));
     app.get('*', (req, res) => {
       res.sendFile(path.join(__dirname, 'dist', 'index.html'));
     });
@@ -51,17 +53,17 @@ async function startServer() {
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
     if (!stripeInstance || !webhookSecret || !sig) {
-        console.log('Webhook skipped: Missing stripe instance, secret, or signature');
-        return res.status(400).send('Webhook Error');
+      console.log('Webhook skipped: Missing stripe instance, secret, or signature');
+      return res.status(400).send('Webhook Error');
     }
 
     let event;
 
     try {
-        event = stripeInstance.webhooks.constructEvent(req.body, sig, webhookSecret);
+      event = stripeInstance.webhooks.constructEvent(req.body, sig, webhookSecret);
     } catch (err: any) {
-        console.error(`Webhook Error: ${err.message}`);
-        return res.status(400).send(`Webhook Error: ${err.message}`);
+      console.error(`Webhook Error: ${err.message}`);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
     console.log(event);
@@ -185,8 +187,8 @@ async function startServer() {
 
   app.get('/api/auth/google/url', (req, res) => {
     if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-        console.error('Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET');
-        return res.status(500).json({ error: 'Google OAuth not configured' });
+      console.error('Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET');
+      return res.status(500).json({ error: 'Google OAuth not configured' });
     }
     const url = googleClient.generateAuthUrl({
       access_type: 'offline',
@@ -207,7 +209,7 @@ async function startServer() {
         code: code as string,
         redirect_uri: getRedirectUri()
       });
-      
+
       const userInfoResponse = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
         headers: { Authorization: `Bearer ${tokens.access_token}` }
       });
@@ -267,9 +269,9 @@ async function startServer() {
   app.get('/api/auth/me', async (req, res) => {
     // Fallback to header if session cookie is blocked by iframe restrictions
     const email = (req.session as any).userEmail || req.headers['x-user-email'];
-    
+
     console.log('Checking auth for /api/auth/me. Session Email:', (req.session as any).userEmail, 'Header Email:', req.headers['x-user-email']);
-    
+
     if (!email) return res.json({ user: null });
     const user = await getUserByEmail(email as string);
     console.log('User found in DB:', !!user);
@@ -278,15 +280,15 @@ async function startServer() {
 
   app.post('/api/auth/logout', (req, res) => {
     req.session.destroy((err) => {
-        if (err) console.error('Logout error:', err);
-        res.json({ success: true });
+      if (err) console.error('Logout error:', err);
+      res.json({ success: true });
     });
   });
 
   app.post('/api/user/deduct-credits', async (req, res) => {
     const email = (req.session as any).userEmail || req.headers['x-user-email'];
     if (!email) return res.status(401).json({ error: 'Unauthorized' });
-    
+
     const { amount } = req.body;
     const user = await getUserByEmail(email as string);
     if (!user) return res.status(404).json({ error: 'User not found' });
@@ -312,15 +314,15 @@ async function startServer() {
   app.post('/api/create-checkout-session', async (req, res) => {
     const email = (req.session as any).userEmail || req.headers['x-user-email'];
     if (!email) {
-        console.error('Create Session Error: Unauthorized');
-        return res.status(401).json({ error: 'Unauthorized' });
+      console.error('Create Session Error: Unauthorized');
+      return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const { planName, price, credits } = req.body;
     const stripeInstance = getStripe();
     if (!stripeInstance) {
-        console.error('Create Session Error: Stripe not configured (Missing STRIPE_SECRET_KEY)');
-        return res.status(500).json({ error: 'Stripe not configured' });
+      console.error('Create Session Error: Stripe not configured (Missing STRIPE_SECRET_KEY)');
+      return res.status(500).json({ error: 'Stripe not configured' });
     }
 
     const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 8080}`;
@@ -416,33 +418,33 @@ async function startServer() {
     if (!stripeInstance) return res.status(500).json({ error: 'Stripe not configured' });
 
     try {
-        const processedSessions = await getProcessedSessionsFromDb();
-        if (processedSessions.includes(sessionId)) {
-          const user = await getUserByEmail(email as string);
-          return res.json({ success: true, user });
-        }
+      const processedSessions = await getProcessedSessionsFromDb();
+      if (processedSessions.includes(sessionId)) {
+        const user = await getUserByEmail(email as string);
+        return res.json({ success: true, user });
+      }
 
-        const session = await stripeInstance.checkout.sessions.retrieve(sessionId);
-        if (session && session.payment_status === 'paid' && session.metadata?.email === email) {
-          const planName = session?.metadata?.planName;
-          const creditsToSet = parseInt(session?.metadata?.credits || '0');
-          const updated = await updateUserByEmail(email as string, {
-            credits: creditsToSet,
-            plan: planName,
-            subscription_id: session?.subscription as string,
-            subscription_status: 'active',
-          });
-          await markSessionProcessedInDb(sessionId);
-          res.json({ success: true, user: updated });
-        } else {
-          res.status(400).json({ error: 'Payment not verified' });
-        }
+      const session = await stripeInstance.checkout.sessions.retrieve(sessionId);
+      if (session && session.payment_status === 'paid' && session.metadata?.email === email) {
+        const planName = session?.metadata?.planName;
+        const creditsToSet = parseInt(session?.metadata?.credits || '0');
+        const updated = await updateUserByEmail(email as string, {
+          credits: creditsToSet,
+          plan: planName,
+          subscription_id: session?.subscription as string,
+          subscription_status: 'active',
+        });
+        await markSessionProcessedInDb(sessionId);
+        res.json({ success: true, user: updated });
+      } else {
+        res.status(400).json({ error: 'Payment not verified' });
+      }
     } catch (error: any) {
-        res.status(500).json({ error: error.message });
+      res.status(500).json({ error: error.message });
     }
   });
 
-    // Create SetupIntent for updating card
+  // Create SetupIntent for updating card
   app.post('/api/stripe/create-setup-intent', async (req, res) => {
     const email = (req.session as any).userEmail || req.headers['x-user-email'];
     if (!email) return res.status(401).json({ error: 'Unauthorized' });
@@ -463,7 +465,7 @@ async function startServer() {
     }
   });
 
-    // Create Stripe Customer Portal session for updating card
+  // Create Stripe Customer Portal session for updating card
   app.post('/api/stripe/create-portal-session', async (req, res) => {
     const email = (req.session as any).userEmail || req.body.email || req.headers['x-user-email'];
     const { stripeCustomerId } = req.body;
@@ -492,102 +494,102 @@ async function startServer() {
       return res.status(500).json({ error: 'Failed to create portal session' });
     }
   });
-  
+
   app.post('/api/share/twitter', async (req, res) => {
     const { text } = req.body;
 
     if (!text) {
-        return res.status(400).json({ error: 'Text is required' });
+      return res.status(400).json({ error: 'Text is required' });
     }
 
     try {
-        // You will need to add your Twitter API keys to your environment variables
-        const client = new TwitterApi({
-            appKey: process.env.TWITTER_API_KEY!,
-            appSecret: process.env.TWITTER_API_KEY_SECRET!,
-            accessToken: process.env.TWITTER_ACCESS_TOKEN!,
-            accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET!,
-        });
+      // You will need to add your Twitter API keys to your environment variables
+      const client = new TwitterApi({
+        appKey: process.env.TWITTER_API_KEY!,
+        appSecret: process.env.TWITTER_API_KEY_SECRET!,
+        accessToken: process.env.TWITTER_ACCESS_TOKEN!,
+        accessSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET!,
+      });
 
-        const { data: createdTweet } = await client.v2.tweet(text);
-        res.json({ success: true, tweet: createdTweet });
+      const { data: createdTweet } = await client.v2.tweet(text);
+      res.json({ success: true, tweet: createdTweet });
     } catch (error) {
 
-        console.error(error);
-        res.status(500).json({ error: 'Failed to post to Twitter' });
+      console.error(error);
+      res.status(500).json({ error: 'Failed to post to Twitter' });
     }
-});
-// --- End Stripe Payment Methods API Route ---
+  });
+  // --- End Stripe Payment Methods API Route ---
 
-// --- Post Creation API Route ---
-app.post('/api/posts/create', upload.single('file'), async (req, res) => {
-  const mreq = req as MulterRequest;
-  try {
-    const { userId, prompt, type, storyText } = mreq.body;
-    if (!userId || !prompt) {
-      return res.status(400).json({ error: 'Missing required fields: userId, prompt' });
+  // --- Post Creation API Route ---
+  app.post('/api/posts/create', upload.single('file'), async (req, res) => {
+    const mreq = req as MulterRequest;
+    try {
+      const { userId, prompt, type, storyText } = mreq.body;
+      if (!userId || !prompt) {
+        return res.status(400).json({ error: 'Missing required fields: userId, prompt' });
+      }
+      let url = '';
+      if (mreq.file) {
+        const fileBuffer = mreq.file.buffer;
+        const fileName = mreq.file.originalname;
+        const mimeType = mreq.file.mimetype;
+        url = await uploadToGCPStorage(fileBuffer, fileName, mimeType, type);
+      }
+      const postData: any = {
+        user_id: userId,
+        prompt,
+        type,
+        url,
+      };
+      if ((type === 'text' || type === 'story') && storyText) {
+        postData.storyText = storyText;
+      }
+      const post = await prisma.post.create({
+        data: postData,
+      });
+      res.json({ success: true, post });
+    } catch (err) {
+      console.error('Post creation error:', err);
+      res.status(500).json({ error: 'Failed to create post' });
     }
-    let url = '';
-    if (mreq.file) {
-      const fileBuffer = mreq.file.buffer;
-      const fileName = mreq.file.originalname;
-      const mimeType = mreq.file.mimetype;
-      url = await uploadToGCPStorage(fileBuffer, fileName, mimeType, type);
-    }
-    const postData: any = {
-      user_id: userId,
-      prompt,
-      type,
-      url,
-    };
-    if ((type === 'text' || type === 'story') && storyText) {
-      postData.storyText = storyText;
-    }
-    const post = await prisma.post.create({
-      data: postData,
-    });
-    res.json({ success: true, post });
-  } catch (err) {
-    console.error('Post creation error:', err);
-    res.status(500).json({ error: 'Failed to create post' });
-  }
-});
-// --- End Post Creation API Route ---
+  });
+  // --- End Post Creation API Route ---
 
-app.get('/api/posts', async (req, res) => {
-  try {
-    const userIdRaw = req.headers["x-user-id"] || req.query.userId;
-    const userId = Array.isArray(userIdRaw) ? userIdRaw[0] : userIdRaw;
-    if (!userId) {
-      return res.status(400).json({ error: "Missing userId in request" });
+  app.get('/api/posts', async (req, res) => {
+    try {
+      const userIdRaw = req.headers["x-user-id"] || req.query.userId;
+      const userId = Array.isArray(userIdRaw) ? userIdRaw[0] : userIdRaw;
+      if (!userId) {
+        return res.status(400).json({ error: "Missing userId in request" });
+      }
+      const posts = await prisma.post.findMany({
+        where: { user_id: userId as string },
+        orderBy: { created_at: 'desc' },
+      });
+      res.json({ posts });
+    } catch (err) {
+      console.error('Failed to fetch posts:', err);
+      res.status(500).json({ error: 'Failed to fetch posts' });
     }
-    const posts = await prisma.post.findMany({
-      where: { user_id: userId as string },
-      orderBy: { created_at: 'desc' },
-    });
-    res.json({ posts });
-  } catch (err) {
-    console.error('Failed to fetch posts:', err);
-    res.status(500).json({ error: 'Failed to fetch posts' });
-  }
-});
+  });
 
-// Delete all posts for a user
-app.delete('/api/posts', async (req, res) => {
-  try {
-    const userIdRaw = req.headers["x-user-id"] || req.query.userId;
-    const userId = Array.isArray(userIdRaw) ? userIdRaw[0] : userIdRaw;
-    if (!userId) {
-      return res.status(400).json({ error: "Missing userId in request" });
+  // Delete all posts for a user
+  app.delete('/api/posts', async (req, res) => {
+    try {
+      const userIdRaw = req.headers["x-user-id"] || req.query.userId;
+      const userId = Array.isArray(userIdRaw) ? userIdRaw[0] : userIdRaw;
+      if (!userId) {
+        return res.status(400).json({ error: "Missing userId in request" });
+      }
+      await prisma.post.deleteMany({ where: { user_id: userId as string } });
+      res.json({ success: true });
+    } catch (err) {
+      console.error('Failed to delete posts:', err);
+      res.status(500).json({ error: 'Failed to delete posts' });
     }
-    await prisma.post.deleteMany({ where: { user_id: userId as string } });
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Failed to delete posts:', err);
-    res.status(500).json({ error: 'Failed to delete posts' });
-  }
-});
-// --- End Stripe Payment Methods API Route ---
+  });
+  // --- End Stripe Payment Methods API Route ---
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
