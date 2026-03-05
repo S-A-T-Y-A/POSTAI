@@ -19,6 +19,7 @@ interface PlansPageProps {
 }
 
 export const PlansPage: React.FC<PlansPageProps> = ({ currentPlan, credits }) => {
+    const port= process.env.PORT || 8080;
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();
     const { refreshUser, user } = useUser();
@@ -51,7 +52,7 @@ export const PlansPage: React.FC<PlansPageProps> = ({ currentPlan, credits }) =>
                 // Redirect after 3 seconds
                 setTimeout(() => {
                     navigate('/dashboard');
-                }, 3000);
+                }, Number(port));
             }
         } catch (error) {
             console.error('Payment verification failed:', error);

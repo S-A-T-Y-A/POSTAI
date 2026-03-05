@@ -51,7 +51,7 @@ POSTAI is a full-stack AI-powered application for generating social media conten
    ```sh
    npm run dev
    ```
-   The app will be available at [http://localhost:3000](http://localhost:3000) (or your configured port).
+   The app will be available at [http://localhost:8080](http://localhost:8080) (or your configured port).
 
 ### Environment Variables
 

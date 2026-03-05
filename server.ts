@@ -168,7 +168,7 @@ async function startServer() {
   );
 
   const getRedirectUri = () => {
-    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 8080}`;
     const uri = `${appUrl.replace(/\/$/, '')}/auth/google/callback`;
     console.log('Using Redirect URI:', uri);
     return uri;
@@ -314,7 +314,7 @@ async function startServer() {
         return res.status(500).json({ error: 'Stripe not configured' });
     }
 
-    const appUrl = process.env.APP_URL || 'http://localhost:3000';
+    const appUrl = process.env.APP_URL || `http://localhost:${process.env.PORT || 8080}`;
     console.log('Creating Stripe session for:', email, 'Plan:', planName, 'App URL:', appUrl);
 
     try {
@@ -475,7 +475,7 @@ async function startServer() {
     try {
       const session = await stripeInstance.billingPortal.sessions.create({
         customer: customerId,
-        return_url: process.env.PORTAL_RETURN_URL || 'http://localhost:3000/profile',
+        return_url: process.env.PORTAL_RETURN_URL || `http://localhost:${process.env.PORT || 8080}/profile`,
       });
       return res.status(200).json({ url: session.url });
     } catch (err) {
