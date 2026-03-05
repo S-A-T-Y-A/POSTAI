@@ -3,7 +3,6 @@
     "target": "ES2022",
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
-    "module": "ESNext",
     "lib": [
       "ES2022",
       "DOM",
@@ -24,6 +23,16 @@
       ]
     },
     "allowImportingTsExtensions": true,
-    "noEmit": true
-  }
+    "noEmit": true,
+    "outDir": "dist",
+    "module": "ESNext",
+    "esModuleInterop": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": [
+    "server.ts",
+    "services/**/*.ts",
+    "prisma/**/*.ts"
+  ]
 }
