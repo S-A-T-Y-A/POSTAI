@@ -12,6 +12,7 @@ import { getProcessedSessionsFromDb, markSessionProcessedInDb } from './services
 import { prisma } from './prisma/prismaClient';
 import { uploadToGCPStorage } from './services/gcpStorageService';
 import { Request } from 'express';
+import path from 'path';
 
 interface MulterRequest extends Request {
   file?: Express.Multer.File;
@@ -34,6 +35,14 @@ async function startServer() {
   const PORT = Number(process.env.PORT) || 8080;
 
   app.set('trust proxy', 1);
+
+  // Serve static files from Vite build in production
+  if (process.env.NODE_ENV === 'production') {
+    app.use(express.static(path.join(__dirname, 'dist')));
+    app.get('*', (req, res) => {
+      res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    });
+  }
 
   // Stripe Webhook needs raw body for signature verification
   app.post('/api/webhook/stripe', express.raw({ type: 'application/json' }), async (req, res) => {

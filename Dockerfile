@@ -19,5 +19,10 @@ RUN npm run build
 # Expose port (Cloud Run default is 8080)
 EXPOSE 8080
 
-# Start the server
-CMD ["npm", "run", "dev"]
+
+# Set NODE_ENV to production for Cloud Run deployments
+ENV NODE_ENV=production
+
+# Start the production server
+CMD ["npm", "start"]
+
