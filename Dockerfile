@@ -13,6 +13,9 @@ RUN npm install
 # Copy the rest of the application code
 COPY . .
 
+# Set a dummy DATABASE_URL to allow Prisma to generate the client during build
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+
 # Build the frontend (if using Vite/React)
 RUN npm run build
 
