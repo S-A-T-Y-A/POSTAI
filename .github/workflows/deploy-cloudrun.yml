@@ -36,6 +36,7 @@ jobs:
       PORTAL_RETURN_URL: ${{ secrets.PORTAL_RETURN_URL }}
       HF_API_KEY: ${{ secrets.HF_API_KEY }}
       API_KEY: ${{ secrets.API_KEY }}
+      PORT: ${{ secrets.PORT }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3

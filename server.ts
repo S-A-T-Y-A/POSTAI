@@ -31,7 +31,7 @@ const getStripe = () => {
 async function startServer() {
   const app = express();
   const upload = multer({ limits: { fileSize: 100 * 1024 * 1024 } }); // 100MB limit
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 8080;
 
   app.set('trust proxy', 1);
 
