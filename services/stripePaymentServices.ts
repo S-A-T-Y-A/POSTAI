@@ -1,7 +1,16 @@
 import Stripe from 'stripe';
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2026-02-25.clover' });
 import { prisma } from '../prisma/prismaClient.js';
 
+let stripeInstance: Stripe | null = null;
+function getStripe(): Stripe {
+  if (!stripeInstance) {
+    if (!process.env.STRIPE_SECRET_KEY) {
+      throw new Error("Missing STRIPE_SECRET_KEY environment variable");
+    }
+    stripeInstance = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2026-02-25.clover' as any });
+  }
+  return stripeInstance;
+}
 
 // Fetch the Stripe customer ID from your database using the user's email
 export async function getStripeCustomerId(userEmail: string): Promise<string | null> {
@@ -18,6 +27,7 @@ export async function getOrCreateStripeCustomerId(userEmail: string, name?: stri
     return user.stripe_customer_id;
   }
   // Create Stripe customer
+  const stripe = getStripe();
   const customer = await stripe.customers.create({
     email: userEmail,
     name,
@@ -36,6 +46,7 @@ export async function getStripePaymentInfo(userEmail: string) {
     return { error: 'Stripe customer not found', status: 404 };
   }
   try {
+    const stripe = getStripe();
     const paymentMethods = await stripe.paymentMethods.list({
       customer: customerId,
       type: 'card',
