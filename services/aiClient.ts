@@ -35,7 +35,7 @@ export const generateVideoPost = async (
 ): Promise<string> => {
     // For long-running video generation, we might need a different approach (e.g., polling)
     // but for now let's try a simple POST if the server can wait.
-    onProgress({ message: "Starting video generation...", progress: 0 });
+    onProgress({ message: "Video generation...", progress: 0 });
 
     // Note: This matches the existing logic where progress is simulated on the client
     // or received via some mechanism. Since we're moving to backend,
@@ -61,7 +61,7 @@ export const generateStoryPost = async (
     onProgress: (status: VideoGenerationStatus) => void,
     images: string[]
 ): Promise<{ videoUrl: string, storyText: string }> => {
-    onProgress({ message: "Starting story generation...", progress: 0 });
+    onProgress({ message: "Story generation...", progress: 0 });
     const response = await fetch('/api/ai/generate-story', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
