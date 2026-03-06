@@ -22,6 +22,12 @@ interface MulterRequest extends Request {
 
 // --- Stripe Payment Methods API Route ---
 import { getStripePaymentInfo } from './services/stripePaymentServices.js';
+import {
+  generateTextPost,
+  generateImagePost,
+  generateVideoPost,
+  generateStoryPost
+} from './services/aiService.js';
 
 let stripe: Stripe | null = null;
 const getStripe = () => {
@@ -513,7 +519,53 @@ async function startServer() {
       res.status(500).json({ error: 'Failed to post to Twitter' });
     }
   });
-  // --- End Stripe Payment Methods API Route ---
+  // --- AI Generation Routes ---
+  app.post('/api/ai/generate-text', async (req, res) => {
+    try {
+      const { prompt, imageDataUrl } = req.body;
+      const text = await generateTextPost(prompt, imageDataUrl);
+      res.json({ text });
+    } catch (error: any) {
+      console.error("AI Text generation error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/ai/generate-image', async (req, res) => {
+    try {
+      const { prompt, imageDataUrl } = req.body;
+      const imageUrl = await generateImagePost(prompt, imageDataUrl);
+      res.json({ imageUrl });
+    } catch (error: any) {
+      console.error("AI Image generation error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/ai/generate-video', async (req, res) => {
+    try {
+      const { prompt, images } = req.body;
+      const onProgress = (status: any) => console.log(`Video Progress: ${status.message} (${status.progress}%)`);
+      const videoUrl = await generateVideoPost(prompt, onProgress, images);
+      res.json({ videoUrl });
+    } catch (error: any) {
+      console.error("AI Video generation error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post('/api/ai/generate-story', async (req, res) => {
+    try {
+      const { prompt, images } = req.body;
+      const onProgress = (status: any) => console.log(`Story Progress: ${status.message} (${status.progress}%)`);
+      const result = await generateStoryPost(prompt, onProgress, images);
+      res.json(result);
+    } catch (error: any) {
+      console.error("AI Story generation error:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  });
+  // --- End AI Generation Routes ---
 
   // --- Post Creation API Route ---
   app.post('/api/posts/create', upload.single('file'), async (req, res) => {

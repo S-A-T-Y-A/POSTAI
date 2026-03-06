@@ -14,10 +14,10 @@ export enum MediaType {
 
 
 export enum SubscriptionPlan {
-  FREE = "Free",
-  BASIC = "Basic",
-  PRO = "Pro",
-  BUSINESS = "Business",
+    FREE = "Free",
+    BASIC = "Basic",
+    PRO = "Pro",
+    BUSINESS = "Business",
 }
 // MediaAsset interface matching Prisma schema
 export interface MediaAsset {
@@ -85,4 +85,9 @@ export interface GenerationStat {
     type: GenerationType;
     count: number;
     last_generated_at: string;
+}
+
+export interface VideoGenerationStatus {
+    message: string;
+    progress: number;
 }

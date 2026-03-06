@@ -1,14 +1,11 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-export interface VideoGenerationStatus {
-    message: string;
-    progress: number;
-}
+import { VideoGenerationStatus } from "../types";
 
 const getAiClient = () => {
     if (!process.env.GEMINI_API_KEY) {
-        throw new Error("API_KEY environment variable not set");
+        throw new Error("GEMINI_API_KEY environment variable not set on server");
     }
     // Create a new instance for each call to ensure the latest API key is used, especially for Veo.
     return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -206,8 +203,9 @@ export const generateVideoPost = async (prompt: string, onProgress: (status: Vid
         if (!response.ok) {
             throw new Error(`Failed to download video file: ${response.statusText}`);
         }
-        const videoBlob = await response.blob();
-        return URL.createObjectURL(videoBlob);
+        const videoArrayBuffer = await response.arrayBuffer();
+        const base64Video = Buffer.from(videoArrayBuffer).toString('base64');
+        return `data:video/mp4;base64,${base64Video}`;
     } catch (error) {
         console.error("Video generation error:", error);
         throw error; // Re-throw to be caught by the App component
