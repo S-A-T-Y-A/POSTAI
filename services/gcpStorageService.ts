@@ -2,9 +2,7 @@ import { Storage } from '@google-cloud/storage';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const storage = new Storage({
-  credentials: JSON.parse(process.env.GCS_SERVICE_KEY || '{}')
-});
+const storage = new Storage();
 
 const BUCKET_NAME = 'postai_media';
 
