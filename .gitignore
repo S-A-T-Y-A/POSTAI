@@ -24,3 +24,4 @@ dist-ssr
 *.sw?
 services/postai-media.json
 postai-deployment.json
+.env
