@@ -21,6 +21,19 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       emptyOutDir: false,
+      rollupOptions: {
+        output: {
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              if (id.includes('lucide-react')) return 'lucide';
+              if (id.includes('stripe')) return 'stripe';
+              if (id.includes('supabase')) return 'supabase';
+              if (id.includes('@google/genai')) return 'ai';
+              return 'vendor';
+            }
+          }
+        }
+      }
     },
     resolve: {
       alias: {

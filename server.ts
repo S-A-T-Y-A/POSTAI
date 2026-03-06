@@ -14,6 +14,7 @@ import { uploadToGCPStorage } from './services/gcpStorageService.js';
 import { Request } from 'express';
 import compression from 'compression';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 interface MulterRequest extends Request {
   file?: Express.Multer.File;
@@ -31,6 +32,9 @@ const getStripe = () => {
 };
 
 async function startServer() {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+
   const app = express();
   const upload = multer({ limits: { fileSize: 100 * 1024 * 1024 } }); // 100MB limit
   const PORT = Number(process.env.PORT) || 8080;
@@ -45,9 +49,9 @@ async function startServer() {
 
   // Serve static files from Vite build in production
   if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(path.join(__dirname, 'dist'), { maxAge: '1y' }));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+    app.use(express.static(path.join(__dirname, '..', 'dist'), { maxAge: '1y' }));
+    app.get(/.*/, (req, res) => {
+      res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
     });
   }
 
@@ -170,6 +174,7 @@ async function startServer() {
     secret: 'postai-secret-key',
     resave: false,
     saveUninitialized: false,
+    proxy: true,
     cookie: {
       secure: true,
       sameSite: 'none',

@@ -84,7 +84,7 @@ jobs:
             --project ${{ env.GCP_PROJECT_ID }} \
             --service-account "$SERVICE_ACCOUNT_EMAIL" \
             --allow-unauthenticated \
-            --liveness-probe="path=/health,initialDelaySeconds=15" \
-            --startup-probe="path=/health,initialDelaySeconds=15" \
+            --liveness-probe="httpGet=/,initialDelaySeconds=15" \
+            --startup-probe="httpGet=/,initialDelaySeconds=15" \
             --timeout=300 \
             --set-env-vars "^||^DATABASE_URL=${{ env.DATABASE_URL }}||DIRECT_URL=${{ env.DIRECT_URL }}||SUPABASE_URL=${{ env.SUPABASE_URL }}||SUPABASE_SERVICE_ROLE_KEY=${{ env.SUPABASE_SERVICE_ROLE_KEY }}||SUPABASE_PUBLISHABLE_KEY=${{ env.SUPABASE_PUBLISHABLE_KEY }}||SUPABASE_ANON_KEY=${{ env.SUPABASE_ANON_KEY }}||GEMINI_API_KEY=${{ env.GEMINI_API_KEY }}||TWITTER_API_KEY=${{ env.TWITTER_API_KEY }}||TWITTER_API_KEY_SECRET=${{ env.TWITTER_API_KEY_SECRET }}||TWITTER_ACCESS_TOKEN=${{ env.TWITTER_ACCESS_TOKEN }}||TWITTER_ACCESS_TOKEN_SECRET=${{ env.TWITTER_ACCESS_TOKEN_SECRET }}||GOOGLE_CLIENT_ID=${{ env.GOOGLE_CLIENT_ID }}||GOOGLE_CLIENT_SECRET=${{ env.GOOGLE_CLIENT_SECRET }}||APP_URL=${{ env.APP_URL }}||STRIPE_SECRET_KEY=${{ env.STRIPE_SECRET_KEY }}||STRIPE_WEBHOOK_SECRET=${{ env.STRIPE_WEBHOOK_SECRET }}||VITE_STRIPE_PUBLISHABLE_KEY=${{ env.VITE_STRIPE_PUBLISHABLE_KEY }}||PORTAL_RETURN_URL=${{ env.PORTAL_RETURN_URL }}||HF_API_KEY=${{ env.HF_API_KEY }}"
