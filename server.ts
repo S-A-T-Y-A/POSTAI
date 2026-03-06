@@ -341,17 +341,11 @@ async function startServer() {
         const activeSubs = await stripeInstance.subscriptions.list({
           customer: user.stripe_customer_id,
           status: 'active',
-          expand: ['data.items.data.price.product'],
         });
-        // Cancel only subscriptions for the same app/product (by product name)
+
+        // Cancel existing PostAI subscriptions to enforce "one plan at a time"
         for (const sub of activeSubs.data) {
-          // Check if any item in the subscription matches this app's product name
-          const hasMatchingProduct = sub.items.data.some(item => {
-            // Product name is set as `PostAI ${planName} Plan` in sessionParams
-            const product = item.price.product as any;
-            return product && product.name && product.name.startsWith('PostAI ');
-          });
-          if (hasMatchingProduct) {
+          if (sub.metadata && sub.metadata.planName) {
             await stripeInstance.subscriptions.cancel(sub.id, { invoice_now: true, prorate: true });
           }
         }
@@ -398,10 +392,6 @@ async function startServer() {
       }
 
       const session = await stripeInstance.checkout.sessions.create(sessionParams);
-
-      // If user didn't have a customer_id, save it after session creation
-      console.log('Stripe session created. Session ID:', session.id, 'Customer:', session.customer);
-      console.log('User before update:', user);
 
       console.log('Stripe session created successfully:', session.id);
       res.json({ id: session.id, url: session.url });
