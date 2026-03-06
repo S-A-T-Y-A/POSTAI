@@ -51,38 +51,39 @@ export const PostCreator = forwardRef<any, PostCreatorProps>(
 
     const { user } = useUser();
 
-    // For story prompt input images, do NOT upload to GCP, just keep as local object URLs or base64
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
+
+    // For story prompt input images, upload to GCP STORAGE immediately
     const handleFiles = async (files: FileList) => {
       const fileArray = Array.from(files);
-      const localUrls: string[] = [];
+      setIsUploadingImage(true);
+
+      const newUrls: string[] = [];
       for (const file of fileArray) {
-        if (
-          file &&
-          (file.type.startsWith("image/") ||
-            file.type.startsWith("video/") ||
-            file.type.startsWith("audio/") ||
-            file.type === "application/json")
-        ) {
+        if (file && file.type.startsWith("image/")) {
           try {
-            // Use local object URL for preview and pass file object/base64 to story generator
-            const url = URL.createObjectURL(file);
-            localUrls.push(url);
+            // 1. Show immediate local preview (optional, but keep it simple for now)
+            // 2. Upload to GCP
+            const gcpUrl = await uploadFileToGCP({
+              file,
+              userId: user?.id || "anonymous",
+              type: postType === PostType.STORY ? "story" : "image",
+            });
+            newUrls.push(gcpUrl);
           } catch (err) {
-            console.error(
-              "Failed to process file for prompt input",
-              file.name,
-              err,
-            );
-            alert(`Failed to process file: ${file.name}`);
+            console.error("Failed to upload file to GCP", file.name, err);
+            alert(`Failed to upload ${file.name}. Please try again.`);
           }
         } else {
           console.warn("Skipping invalid file:", file?.name);
           alert(`Skipping invalid file: ${file.name}`);
         }
       }
-      if (localUrls.length === fileArray.length) {
-        setUploadedImages((prev) => [...prev, ...localUrls]);
+
+      if (newUrls.length > 0) {
+        setUploadedImages((prev) => [...prev, ...newUrls]);
       }
+      setIsUploadingImage(false);
     };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,13 +120,8 @@ export const PostCreator = forwardRef<any, PostCreatorProps>(
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      // For story posts, send all uploadedImages (local object URLs or base64)
-      const imagesToSend =
-        postType === PostType.STORY
-          ? uploadedImages
-          : uploadedImages.filter((img) =>
-              img.startsWith("https://drive.google.com/uc?id="),
-            );
+      // For all post types, we can now send the uploaded GCP URLs
+      const imagesToSend = uploadedImages;
       if (prompt.trim() || imagesToSend.length > 0) {
         await onGenerate(prompt, postType, imagesToSend);
         // Only clear after generation is done and not loading
@@ -138,6 +134,7 @@ export const PostCreator = forwardRef<any, PostCreatorProps>(
 
     const isGenerateDisabled =
       isLoading ||
+      isUploadingImage ||
       (!prompt.trim() && uploadedImages.length === 0) ||
       ((postType === PostType.VIDEO || postType === PostType.STORY) &&
         !isApiKeySelectedForVideo) ||
@@ -243,11 +240,10 @@ export const PostCreator = forwardRef<any, PostCreatorProps>(
                   type="button"
                   onClick={() => setPostType(option.id)}
                   disabled={isDisabled}
-                  className={`flex flex-col items-center justify-center p-4 border-2 rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 text-center ${
-                    isSelected
-                      ? "bg-gradient-to-r from-brand-secondary/20 to-brand-primary/20 border-brand-primary text-brand-text"
-                      : "bg-brand-bg border-brand-border hover:border-brand-text-secondary text-brand-text-secondary hover:text-brand-text"
-                  } ${isDisabled ? "opacity-50 cursor-not-allowed scale-100" : ""}`}
+                  className={`flex flex-col items-center justify-center p-4 border-2 rounded-lg transition-all duration-300 ease-in-out transform hover:scale-105 text-center ${isSelected
+                    ? "bg-gradient-to-r from-brand-secondary/20 to-brand-primary/20 border-brand-primary text-brand-text"
+                    : "bg-brand-bg border-brand-border hover:border-brand-text-secondary text-brand-text-secondary hover:text-brand-text"
+                    } ${isDisabled ? "opacity-50 cursor-not-allowed scale-100" : ""}`}
                 >
                   <Icon className="h-6 w-6 mb-2" />
                   <span className="text-sm font-semibold">{option.name}</span>
@@ -279,7 +275,7 @@ export const PostCreator = forwardRef<any, PostCreatorProps>(
           className="w-full flex items-center justify-center py-3 px-4 bg-gradient-to-r from-brand-primary to-brand-secondary text-white font-bold rounded-lg transition-all duration-300 ease-in-out disabled:opacity-50 disabled:cursor-not-allowed transform hover:shadow-lg hover:shadow-brand-primary/20 hover:-translate-y-1"
         >
           <Sparkles className="h-5 w-5 mr-2" />
-          {isLoading ? "Generating..." : "Generate Post"}
+          {isLoading ? "Generating..." : isUploadingImage ? "Uploading..." : "Generate Post"}
         </button>
       </form>
     );

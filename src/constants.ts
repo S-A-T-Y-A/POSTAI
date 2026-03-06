@@ -1,10 +1,10 @@
-import { PostType ,SubscriptionPlan} from '../types';
+import { PostType, SubscriptionPlan } from '../types';
 
 export const CREDIT_COSTS: Record<PostType, number> = {
     [PostType.TEXT]: 1,
     [PostType.IMAGE]: 2,
     [PostType.VIDEO]: 15,
-    [PostType.STORY]: 15,
+    [PostType.STORY]: 16,
 };
 export const HISTORY_LIMIT: Record<SubscriptionPlan, number> = {
     [SubscriptionPlan.FREE]: 20,

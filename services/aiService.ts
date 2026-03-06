@@ -11,11 +11,23 @@ const getAiClient = () => {
     return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 };
 
-function dataUrlToAiPart(dataUrl: string): { mimeType: string; data: string } {
-    const parts = dataUrl.split(',');
-    const mimeType = parts[0].split(':')[1].split(';')[0];
-    const data = parts[1];
-    return { mimeType, data };
+async function imageToAiPart(imageSource: string): Promise<{ mimeType: string; data: string }> {
+    if (imageSource.startsWith('data:')) {
+        const parts = imageSource.split(',');
+        const mimeType = parts[0].split(':')[1].split(';')[0];
+        const data = parts[1];
+        return { mimeType, data };
+    } else if (imageSource.startsWith('http')) {
+        const response = await fetch(imageSource);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch image from URL: ${imageSource}`);
+        }
+        const arrayBuffer = await response.arrayBuffer();
+        const mimeType = response.headers.get('content-type') || 'image/png';
+        const data = Buffer.from(arrayBuffer).toString('base64');
+        return { mimeType, data };
+    }
+    throw new Error(`Unsupported image source format: ${imageSource.substring(0, 20)}...`);
 }
 
 
@@ -25,7 +37,7 @@ export const generateTextPost = async (prompt: string, imageDataUrl?: string | n
 
         const contentParts: any[] = [];
         if (imageDataUrl) {
-            contentParts.push({ inlineData: dataUrlToAiPart(imageDataUrl) });
+            contentParts.push({ inlineData: await imageToAiPart(imageDataUrl) });
         }
         contentParts.push({ text: prompt || "Describe this image." });
 
@@ -54,7 +66,7 @@ export const generateImagePost = async (prompt: string, imageDataUrl?: string | 
 
         const contentParts: any[] = [];
         if (imageDataUrl) {
-            contentParts.push({ inlineData: dataUrlToAiPart(imageDataUrl) });
+            contentParts.push({ inlineData: await imageToAiPart(imageDataUrl) });
         }
         contentParts.push({ text: prompt });
 
@@ -113,6 +125,8 @@ export const generateStoryPost = async (
 
     The user's prompt is: "${prompt}"
 
+    **CRITICAL:** The video generated for this post is limited to **8 seconds**. Your pitch must be highly engaging, high-impact, and designed to complete its message within that 8-second window.
+
     Your output must be a persuasive and concise social media post in the following format:
 
     **[Catchy Headline that Grabs Attention]**
@@ -153,25 +167,28 @@ export const generateVideoPost = async (prompt: string, onProgress: (status: Vid
 
         if (images && images.length > 0) {
             if (images.length === 1) {
-                const { mimeType, data } = dataUrlToAiPart(images[0]);
+                const { mimeType, data } = await imageToAiPart(images[0]);
                 generationOptions.image = {
-                    bytesBase64Encoded: data,
+                    imageBytes: data,
                     mimeType: mimeType
                 };
             } else {
                 generationOptions.model = 'veo-3.1-generate-preview'; // This model supports multiple images
                 generationOptions.config.aspectRatio = '16:9'; // Required for multi-image
                 generationOptions.config.resolution = '720p'; // Required for multi-image
-                generationOptions.config.referenceImages = images.map(img => {
-                    const { mimeType, data } = dataUrlToAiPart(img);
-                    return {
+
+                const referenceImages = [];
+                for (const img of images) {
+                    const { mimeType, data } = await imageToAiPart(img);
+                    referenceImages.push({
                         image: {
-                            bytesBase64Encoded: data,
+                            imageBytes: data,
                             mimeType: mimeType
                         },
-                        referenceType: 'ASSET' // Using 'ASSET' as a generic reference type
-                    }
-                });
+                        referenceType: 'ASSET'
+                    });
+                }
+                generationOptions.config.referenceImages = referenceImages;
             }
         }
 
@@ -189,9 +206,26 @@ export const generateVideoPost = async (prompt: string, onProgress: (status: Vid
 
         onProgress({ message: "Video generation complete!", progress: 100 });
 
-        const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+        console.log("Video Generation Operation Result:", JSON.stringify(operation, null, 2));
+
+        if (operation.error) {
+            console.error("Gemini Video Operation Error:", operation.error);
+            throw new Error(`Gemini Video generation failed: ${operation.error.message || "Unknown error"}`);
+        }
+
+        let downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+
+        // Sometimes the link takes a moment to propagate even after .done is true
         if (!downloadLink) {
-            throw new Error("Video generation succeeded but no download link was found.");
+            console.log("No download link found immediately. Waiting 3 seconds for link propagation...");
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            operation = await ai.operations.getVideosOperation({ operation: operation });
+            downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+        }
+
+        if (!downloadLink) {
+            console.error("Gemini Response Structure:", JSON.stringify(operation.response, null, 2));
+            throw new Error("Video generation succeeded but no download link was found after retry. Check server logs for response structure.");
         }
 
         const response = await fetch(downloadLink, {
