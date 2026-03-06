@@ -155,8 +155,7 @@ export const generateVideoPost = async (prompt: string, onProgress: (status: Vid
             if (images.length === 1) {
                 const { mimeType, data } = dataUrlToAiPart(images[0]);
                 generationOptions.image = {
-                    // imageBytes: data,
-                    bytesBase64Encoded: data,
+                    imageBytes: data,
                     mimeType: mimeType
                 };
             } else {
@@ -167,8 +166,7 @@ export const generateVideoPost = async (prompt: string, onProgress: (status: Vid
                     const { mimeType, data } = dataUrlToAiPart(img);
                     return {
                         image: {
-                            // imageBytes: data,
-                            bytesBase64Encoded: data,
+                            imageBytes: data,
                             mimeType: mimeType
                         },
                         referenceType: 'ASSET' // Using 'ASSET' as a generic reference type
