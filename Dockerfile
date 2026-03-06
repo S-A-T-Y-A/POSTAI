@@ -22,6 +22,9 @@ RUN npm run build
 # Expose port (Cloud Run default is 8080)
 EXPOSE 8080
 
+# Set environment to production to prevent Vite dev server from starting
+ENV NODE_ENV=production
+
 # Start the production server
 CMD ["npm", "start"]
 
