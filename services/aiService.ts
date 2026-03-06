@@ -1,7 +1,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 
-import { VideoGenerationStatus } from "../types";
+import { VideoGenerationStatus } from "../types.js";
 
 const getAiClient = () => {
     if (!process.env.GEMINI_API_KEY) {

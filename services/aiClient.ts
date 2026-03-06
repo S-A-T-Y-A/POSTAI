@@ -1,4 +1,4 @@
-import { VideoGenerationStatus } from "../types";
+import { VideoGenerationStatus } from "../types.js";
 
 export const generateTextPost = async (prompt: string, imageDataUrl?: string | null): Promise<string> => {
     const response = await fetch('/api/ai/generate-text', {
