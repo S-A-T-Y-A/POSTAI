@@ -38,6 +38,11 @@ async function startServer() {
   app.set('trust proxy', 1);
   app.use(compression());
 
+  // Health check endpoint for Cloud Run
+  app.get('/health', (req, res) => {
+    res.status(200).send('OK');
+  });
+
   // Serve static files from Vite build in production
   if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, 'dist'), { maxAge: '1y' }));
