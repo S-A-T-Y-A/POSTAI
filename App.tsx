@@ -5,7 +5,7 @@ import { FaGoogleDrive } from "react-icons/fa";
 import { Header } from "./components/Header";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ApiKeySelector } from "./components/ApiKeySelector";
-import { Post, PostType ,SubscriptionPlan} from "./types";
+import { Post, PostType, SubscriptionPlan } from "./types";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { uploadFileToGoogleDrive } from "./services/googleDriveUpload";
 // Define subscription plans
@@ -56,8 +56,8 @@ import {
   generateImagePost,
   generateVideoPost,
   generateStoryPost,
-  VideoGenerationStatus,
-} from "./services/aiService";
+} from "./services/aiClient";
+import { VideoGenerationStatus } from "./types";
 import { CREDIT_COSTS, HISTORY_LIMIT } from "./src/constants";
 
 // This is a polyfill for aistudio, for local development
@@ -204,7 +204,7 @@ const AppContent: React.FC = () => {
       return;
     }
 
-    if(posts.length >= HISTORY_LIMIT[currentPlan]) {
+    if (posts.length >= HISTORY_LIMIT[currentPlan]) {
       setError(`You ran out of memory. Please clear some space to generate new content.`);
       return;
     }
@@ -658,15 +658,15 @@ const AppContent: React.FC = () => {
 
 const App: React.FC = () => {
   return (
-      <UserProvider>
-        <BrowserRouter>
-          <ErrorBoundary>
-            {/* <AppContentWithTheme />
+    <UserProvider>
+      <BrowserRouter>
+        <ErrorBoundary>
+          {/* <AppContentWithTheme />
              */}
-             <AppContent />
-          </ErrorBoundary>
-        </BrowserRouter>
-      </UserProvider>
+          <AppContent />
+        </ErrorBoundary>
+      </BrowserRouter>
+    </UserProvider>
   );
 };
 
