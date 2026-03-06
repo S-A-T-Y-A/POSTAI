@@ -47,13 +47,7 @@ async function startServer() {
     res.status(200).send('OK');
   });
 
-  // Serve static files from Vite build in production
-  if (process.env.NODE_ENV === 'production') {
-    app.use(express.static(path.join(__dirname, '..', 'dist'), { maxAge: '1y' }));
-    app.get(/.*/, (req, res) => {
-      res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
-    });
-  }
+
 
   // Stripe Webhook needs raw body for signature verification
   app.post('/api/webhook/stripe', express.raw({ type: 'application/json' }), async (req, res) => {
@@ -600,6 +594,14 @@ async function startServer() {
     }
   });
   // --- End Stripe Payment Methods API Route ---
+
+  // Serve static files from Vite build in production
+  if (process.env.NODE_ENV === 'production') {
+    app.use(express.static(path.join(__dirname, '..', 'dist'), { maxAge: '1y' }));
+    app.get(/.*/, (req, res) => {
+      res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
+    });
+  }
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
