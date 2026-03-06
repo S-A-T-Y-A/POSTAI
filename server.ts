@@ -169,7 +169,8 @@ async function startServer() {
     res.json({ received: true });
   });
 
-  app.use(express.json());
+  app.use(express.json({ limit: '50mb' }));
+  app.use(express.urlencoded({ limit: '50mb', extended: true }));
   app.use(session({
     secret: 'postai-secret-key',
     resave: false,
@@ -566,6 +567,26 @@ async function startServer() {
     }
   });
   // --- End AI Generation Routes ---
+
+  // --- Media Upload API Route ---
+  app.post('/api/media/upload', async (req, res) => {
+    try {
+      const { userId, fileName, mimeType, type, fileBuffer: base64Buffer } = req.body;
+
+      if (!base64Buffer || !fileName || !mimeType) {
+        return res.status(400).json({ error: 'Missing required upload data' });
+      }
+
+      const buffer = Buffer.from(base64Buffer, 'base64');
+      const url = await uploadToGCPStorage(buffer, fileName, mimeType, type || 'image');
+
+      res.json({ success: true, media: { url } });
+    } catch (err) {
+      console.error('Media upload error:', err);
+      res.status(500).json({ error: 'Failed to upload media' });
+    }
+  });
+  // --- End Media Upload API Route ---
 
   // --- Post Creation API Route ---
   app.post('/api/posts/create', upload.single('file'), async (req, res) => {

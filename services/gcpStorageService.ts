@@ -1,6 +1,16 @@
 import { Storage } from '@google-cloud/storage';
 import path from 'path';
 import { fileURLToPath } from 'url';
+// import fs from 'fs';
+
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
+
+// // Per user request, manually pass the service key for local development if it exists.
+// const localKeyPath = path.join(__dirname, 'postai-media.json');
+// const storage = fs.existsSync(localKeyPath)
+//   ? new Storage({ keyFilename: localKeyPath })
+//   : new Storage();
 
 const storage = new Storage();
 
