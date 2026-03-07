@@ -1,10 +1,10 @@
 import { VideoGenerationStatus } from "../types.js";
 
-export const generateTextPost = async (prompt: string, imageDataUrl?: string | null): Promise<string> => {
+export const generateTextPost = async (prompt: string, images?: string[] | null): Promise<string> => {
     const response = await fetch('/api/ai/generate-text', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, imageDataUrl }),
+        body: JSON.stringify({ prompt, images }),
     });
     if (!response.ok) {
         const errorData = await response.json();
@@ -14,11 +14,11 @@ export const generateTextPost = async (prompt: string, imageDataUrl?: string | n
     return data.text;
 };
 
-export const generateImagePost = async (prompt: string, imageDataUrl?: string | null): Promise<string> => {
+export const generateImagePost = async (prompt: string, images?: string[] | null): Promise<string> => {
     const response = await fetch('/api/ai/generate-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, imageDataUrl }),
+        body: JSON.stringify({ prompt, images }),
     });
     if (!response.ok) {
         const errorData = await response.json();

@@ -523,8 +523,8 @@ async function startServer() {
   // --- AI Generation Routes ---
   app.post('/api/ai/generate-text', async (req, res) => {
     try {
-      const { prompt, imageDataUrl } = req.body;
-      const text = await generateTextPost(prompt, imageDataUrl);
+      const { prompt, images } = req.body;
+      const text = await generateTextPost(prompt, images);
       res.json({ text });
     } catch (error: any) {
       console.error("AI Text generation error:", error.message);
@@ -534,8 +534,8 @@ async function startServer() {
 
   app.post('/api/ai/generate-image', async (req, res) => {
     try {
-      const { prompt, imageDataUrl } = req.body;
-      const imageUrl = await generateImagePost(prompt, imageDataUrl);
+      const { prompt, images } = req.body;
+      const imageUrl = await generateImagePost(prompt, images);
       res.json({ imageUrl });
     } catch (error: any) {
       console.error("AI Image generation error:", error.message);

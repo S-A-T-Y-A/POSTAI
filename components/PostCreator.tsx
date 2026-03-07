@@ -3,21 +3,18 @@ import React, {
   useRef,
   forwardRef,
   useImperativeHandle,
-  useContext,
 } from "react";
 import { useUser } from "../src/contexts/UserContext";
 import { PostType } from "../types";
 import {
   Type,
-  Image,
+  Image as ImageIcon,
   Film,
   Sparkles,
   UploadCloud,
   X,
   BookImage,
 } from "lucide-react";
-
-// Remove: import { uploadFileToGCP } from "../services/gcpStorageService";
 
 interface PostCreatorProps {
   onGenerate: (prompt: string, type: PostType, images: string[] | null) => void;
@@ -28,7 +25,7 @@ interface PostCreatorProps {
 
 const postTypeOptions = [
   { id: PostType.TEXT, name: "Text", icon: Type },
-  { id: PostType.IMAGE, name: "Image", icon: Image },
+  { id: PostType.IMAGE, name: "Image", icon: ImageIcon },
   { id: PostType.VIDEO, name: "Video", icon: Film },
   { id: PostType.STORY, name: "Story", icon: BookImage },
 ];
@@ -39,21 +36,21 @@ export const PostCreator = forwardRef<any, PostCreatorProps>(
     const [postType, setPostType] = useState<PostType>(PostType.TEXT);
     const [uploadedImages, setUploadedImages] = useState<string[]>([]);
     const [isDragging, setIsDragging] = useState(false);
+    const [isUploadingImage, setIsUploadingImage] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    useImperativeHandle(ref, () => ({
-      setPromptAndImage: (newPrompt: string, imageUrl: string) => {
-        setPrompt(newPrompt);
-        setPostType(PostType.IMAGE);
-        setUploadedImages([imageUrl]);
-      },
-    }));
 
     const { user } = useUser();
 
-    const [isUploadingImage, setIsUploadingImage] = useState(false);
+    useImperativeHandle(ref, () => ({
+      setPromptAndImage: (newPrompt: string, imageUrl?: string) => {
+        if (newPrompt) setPrompt(newPrompt);
+        if (imageUrl) {
+          setPostType(PostType.IMAGE);
+          setUploadedImages([imageUrl]);
+        }
+      },
+    }));
 
-    // For story prompt input images, upload to GCP STORAGE immediately
     const handleFiles = async (files: FileList) => {
       const fileArray = Array.from(files);
       setIsUploadingImage(true);
@@ -62,8 +59,6 @@ export const PostCreator = forwardRef<any, PostCreatorProps>(
       for (const file of fileArray) {
         if (file && file.type.startsWith("image/")) {
           try {
-            // 1. Show immediate local preview (optional, but keep it simple for now)
-            // 2. Upload to GCP
             const gcpUrl = await uploadFileToGCP({
               file,
               userId: user?.id || "anonymous",
@@ -106,7 +101,7 @@ export const PostCreator = forwardRef<any, PostCreatorProps>(
 
     const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
-      e.stopPropagation(); // Necessary to allow drop
+      e.stopPropagation();
     };
 
     const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -120,11 +115,9 @@ export const PostCreator = forwardRef<any, PostCreatorProps>(
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      // For all post types, we can now send the uploaded GCP URLs
       const imagesToSend = uploadedImages;
       if (prompt.trim() || imagesToSend.length > 0) {
         await onGenerate(prompt, postType, imagesToSend);
-        // Only clear after generation is done and not loading
         if (!isLoading) {
           setPrompt("");
           setUploadedImages([]);
@@ -142,55 +135,54 @@ export const PostCreator = forwardRef<any, PostCreatorProps>(
 
     return (
       <form onSubmit={handleSubmit} className="space-y-6">
-        {uploadedImages.length > 0 ? (
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-            {uploadedImages.map((image, index) => (
-              <div key={index} className="relative group aspect-square">
-                {image ? (
-                  <img
-                    src={image}
-                    alt={`Upload preview ${index + 1}`}
-                    className="w-full h-full object-cover rounded-lg"
-                  />
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() =>
-                    setUploadedImages((prev) =>
-                      prev.filter((_, i) => i !== index),
-                    )
-                  }
-                  className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                  aria-label="Remove image"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div
-            className={`relative flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-lg cursor-pointer transition-colors duration-200 ease-in-out
-                        ${isDragging ? "border-brand-primary bg-brand-primary/10" : "border-brand-border hover:border-brand-primary/50"}`}
-            onClick={() => fileInputRef.current?.click()}
-            onDragEnter={handleDragEnter}
-            onDragLeave={handleDragLeave}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-          >
-            <div className="flex flex-col items-center justify-center pt-5 pb-6 text-brand-text-secondary">
-              <UploadCloud
-                size={40}
-                className={`mb-3 transition-colors ${isDragging ? "text-brand-primary" : ""}`}
-              />
-              <p className="mb-2 text-sm">
-                <span className="font-semibold text-brand-text">
-                  Click to upload
-                </span>{" "}
-                or drag and drop
-              </p>
-              <p className="text-xs">PNG, JPG, or WEBP</p>
+        <div
+          className={`relative grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4 p-4 border-2 border-dashed rounded-lg transition-colors duration-200 ease-in-out
+                      ${isDragging ? "border-brand-primary bg-brand-primary/10" : "border-brand-border hover:border-brand-primary/50"}`}
+          onDragEnter={handleDragEnter}
+          onDragLeave={handleDragLeave}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          {uploadedImages.length === 0 && !isDragging && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-brand-text-secondary pointer-events-none">
+              <UploadCloud size={32} className="mb-2 opacity-50" />
+              <p className="text-sm font-medium">Drag & drop images here</p>
+              <p className="text-xs opacity-60">or click to upload</p>
             </div>
+          )}
+
+          {uploadedImages.map((image, index) => (
+            <div key={index} className="relative group aspect-square">
+              <img
+                src={image}
+                alt={`Upload preview ${index + 1}`}
+                className="w-full h-full object-cover rounded-lg border-2 border-brand-border"
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  setUploadedImages((prev) =>
+                    prev.filter((_, i) => i !== index),
+                  )
+                }
+                className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                aria-label="Remove image"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+
+          {/* Constant Upload Button */}
+          <div
+            className={`relative flex flex-col items-center justify-center aspect-square border-2 border-dashed border-brand-border hover:border-brand-primary/50 rounded-lg cursor-pointer transition-colors duration-200 ease-in-out text-brand-text-secondary
+                        ${uploadedImages.length === 0 ? "opacity-0" : "opacity-100"}`}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <UploadCloud
+              size={24}
+            />
+            <span className="text-[10px] mt-1 font-medium">Add Image</span>
             <input
               ref={fileInputRef}
               type="file"
@@ -200,7 +192,15 @@ export const PostCreator = forwardRef<any, PostCreatorProps>(
               onChange={handleFileChange}
             />
           </div>
-        )}
+
+          {/* Hidden input for the base grid click */}
+          {uploadedImages.length === 0 && (
+            <div
+              className="absolute inset-0 cursor-pointer"
+              onClick={() => fileInputRef.current?.click()}
+            />
+          )}
+        </div>
 
         <div>
           <label
@@ -282,9 +282,6 @@ export const PostCreator = forwardRef<any, PostCreatorProps>(
   },
 );
 
-// Remove: import { uploadFileToGoogleDrive } from "../services/googleDriveUpload";
-
-// Add helper to upload any file to GCP via backend
 async function uploadFileToGCP({
   file,
   userId,
@@ -296,7 +293,6 @@ async function uploadFileToGCP({
   type: string;
   metadata?: any;
 }): Promise<string> {
-  // Convert file to base64
   const fileBuffer = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
