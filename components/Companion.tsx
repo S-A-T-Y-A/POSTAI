@@ -89,35 +89,14 @@ export const Companion: React.FC<{
 
   return (
     <div
-      style={{
-        position: "fixed",
-        left: 32,
-        bottom: 32,
-        zIndex: 1000,
-        cursor: "pointer",
-        transition: "all 0.5s cubic-bezier(.68,-0.55,.27,1.55)",
-      }}
+      className="fixed left-2 bottom-2 md:left-8 md:bottom-8 z-[1000] cursor-pointer transition-all duration-500 ease-[cubic-bezier(.68,-0.55,.27,1.55)]"
       title="I'm your companion!"
       onClick={handleShowSuggestion}
     >
       {/* Suggestion bubble in top right of companion */}
       {showSuggestion && !isLoading && (
         <div
-          style={{
-            position: "absolute",
-            top: -24,
-            right: -16,
-            background: "#fff",
-            color: "#333",
-            borderRadius: 8,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
-            padding: "8px 16px",
-            fontSize: 14,
-            maxWidth: 220,
-            textAlign: "center",
-            zIndex: 1001,
-            cursor: "pointer",
-          }}
+          className="absolute -top-4 -right-2 md:-top-6 md:-right-4 bg-white text-black rounded-lg shadow-lg p-1.5 px-3 md:p-2 md:px-4 text-[10px] md:text-sm max-w-[160px] md:max-w-[220px] text-center z-[1001] cursor-pointer"
           onClick={(e) => {
             e.stopPropagation();
             if (onSuggestionClick) onSuggestionClick(suggestion);
@@ -127,16 +106,13 @@ export const Companion: React.FC<{
           {suggestion}
         </div>
       )}
-      <Lottie
-        animationData={isLoading ? loadingBot : spaceKidTyping}
-        style={{
-          width: "200px",
-          height: "200px",
-          maxWidth: "60vw",
-          maxHeight: "30vh",
-        }}
-        loop={true}
-      />
+      <div className="w-[80px] h-[80px] md:w-[200px] md:h-[200px] max-w-[60vw] max-h-[30vh]">
+        <Lottie
+          animationData={isLoading ? loadingBot : spaceKidTyping}
+          style={{ width: "100%", height: "100%" }}
+          loop={true}
+        />
+      </div>
     </div>
   );
 };
