@@ -31,13 +31,15 @@ async function imageToAiPart(imageSource: string): Promise<{ mimeType: string; d
 }
 
 
-export const generateTextPost = async (prompt: string, imageDataUrl?: string | null): Promise<string> => {
+export const generateTextPost = async (prompt: string, images?: string[] | null): Promise<string> => {
     try {
         const ai = getAiClient();
 
         const contentParts: any[] = [];
-        if (imageDataUrl) {
-            contentParts.push({ inlineData: await imageToAiPart(imageDataUrl) });
+        if (images && images.length > 0) {
+            for (const img of images) {
+                contentParts.push({ inlineData: await imageToAiPart(img) });
+            }
         }
         contentParts.push({ text: prompt || "Describe this image." });
 
@@ -60,15 +62,24 @@ export const generateTextPost = async (prompt: string, imageDataUrl?: string | n
     // return dummytext;
 };
 
-export const generateImagePost = async (prompt: string, imageDataUrl?: string | null): Promise<string> => {
+export const generateImagePost = async (prompt: string, images?: string[] | null): Promise<string> => {
     try {
         const ai = getAiClient();
 
         const contentParts: any[] = [];
-        if (imageDataUrl) {
-            contentParts.push({ inlineData: await imageToAiPart(imageDataUrl) });
+        if (images && images.length > 0) {
+            for (const img of images) {
+                contentParts.push({ inlineData: await imageToAiPart(img) });
+            }
         }
-        contentParts.push({ text: prompt });
+        let finalPrompt = prompt;
+        if (images && images.length > 1) {
+            finalPrompt = `COMBINE AND MERGE ALL PEOPLE from the provided reference images into a single cohesive scene. 
+            Ensure every distinct person from the references appears together in the final image. 
+            Maintain their individual identities, faces, and clothing styles. 
+            Scene: ${prompt}`;
+        }
+        contentParts.push({ text: finalPrompt });
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash-image',
@@ -125,7 +136,11 @@ export const generateStoryPost = async (
 
     The user's prompt is: "${prompt}"
 
-    **CRITICAL:** The video generated for this post is limited to **8 seconds**. Your pitch must be highly engaging, high-impact, and designed to complete its message within that 8-second window.
+    **REFERENCE IMAGES:** You will be provided with images that serve as direct visual references for the characters in the video.
+
+    **CRITICAL:** 
+    1. The video generated for this post is limited to **8 seconds**. Your pitch must be highly engaging, high-impact, and designed to complete its message within that 8-second window.
+    2. You MUST maintain the physical likeness and identity of the people shown in the reference images. Refer to them as they appear (e.g., if there's a couple, talk about their specific chemistry or the moment they are sharing based on the images).
 
     Your output must be a persuasive and concise social media post in the following format:
 
@@ -136,7 +151,7 @@ export const generateStoryPost = async (
     **[Clear Call to Action!]** (e.g., "Shop Now!", "Learn More!", "Get Yours Today!")
 
     #[ProductHashtag] #[IndustryHashtag] #[BenefitHashtag]`;
-        const storyText = await generateTextPost(storyPrompt);
+        const storyText = await generateTextPost(storyPrompt, images);
 
         onProgress({ message: "Story generation complete!", progress: 100 });
 
@@ -185,7 +200,7 @@ export const generateVideoPost = async (prompt: string, onProgress: (status: Vid
                             imageBytes: data,
                             mimeType: mimeType
                         },
-                        referenceType: 'ASSET'
+                        referenceType: 'CHARACTER'
                     });
                 }
                 generationOptions.config.referenceImages = referenceImages;

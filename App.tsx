@@ -230,13 +230,12 @@ const AppContent: React.FC = () => {
     try {
       // 1. Generate post content as before
       let generatedContent: any = {};
-      const image = images && images.length > 0 ? images[0] : null;
       if (type === PostType.TEXT) {
         setLoadingMessage("Crafting your text post...");
-        generatedContent.content = await generateTextPost(prompt, image);
+        generatedContent.content = await generateTextPost(prompt, images);
       } else if (type === PostType.IMAGE) {
         setLoadingMessage("Generating your masterpiece...");
-        generatedContent.content = await generateImagePost(prompt, image);
+        generatedContent.content = await generateImagePost(prompt, images);
       } else if (type === PostType.VIDEO) {
         if (!isApiKeySelected) {
           setError("API key is required for video generation.");
