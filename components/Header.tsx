@@ -89,15 +89,15 @@ export const Header: React.FC = () => {
                 className="h-8 w-8 rounded-full object-cover"
               />
               <span className="text-sm font-semibold text-brand-text hidden sm:inline">
-                {user.name.split(" ")[0]}
+                {user.name?.split(" ")[0]}
               </span>
             </Link>
           ) : (
             <button
               onClick={login}
-              className="flex items-center px-4 py-2 bg-brand-primary hover:bg-brand-primary/90 text-white text-sm font-bold rounded-xl transition-all shadow-lg shadow-brand-primary/20"
+              className="flex items-center px-3 py-1.5 md:px-4 md:py-2 bg-brand-primary hover:bg-brand-primary/90 text-white text-xs md:text-sm font-bold rounded-xl transition-all shadow-lg shadow-brand-primary/20"
             >
-              <LogIn size={16} className="mr-2" />
+              <LogIn size={14} className="mr-1.5 md:size-[16px] md:mr-2" />
               Sign In
             </button>
           )}
