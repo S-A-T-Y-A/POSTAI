@@ -100,6 +100,3 @@ See `.env.example` for all required variables:
 3. Start the server: `npm start` (ensure your process manager uses `server.ts`)
 4. Ensure GCP bucket CORS and IAM policies are configured for uploads.
 
-## License
-
-MIT
